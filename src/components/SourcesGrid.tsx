@@ -1,8 +1,11 @@
 import { useEffect } from 'react'
+import { useEditorStore } from '../store/editor'
 import { assetUrl, useSourcesStore } from '../store/sources'
 
 export function SourcesGrid() {
   const { status, error, sources, load } = useSourcesStore()
+  const openSourceId = useEditorStore((s) => s.openSourceId)
+  const open = useEditorStore((s) => s.open)
 
   useEffect(() => {
     void load()
@@ -20,11 +23,18 @@ export function SourcesGrid() {
   return (
     <ul className="source-grid" aria-label="Исходные иллюстрации">
       {sources.map((source) => (
-        <li key={source.id} className="source-tile" title={source.title}>
-          <img src={assetUrl(source.file)} alt={source.title} loading="lazy" draggable={false} />
-          <span className="source-caption">
-            <span className="source-num">{source.id.slice(1)}</span> {source.title}
-          </span>
+        <li key={source.id}>
+          <button
+            className={source.id === openSourceId ? 'source-tile source-tile-active' : 'source-tile'}
+            title={source.title}
+            aria-pressed={source.id === openSourceId}
+            onClick={() => open(source.id)}
+          >
+            <img src={assetUrl(source.file)} alt={source.title} loading="lazy" draggable={false} />
+            <span className="source-caption">
+              <span className="source-num">{source.id.slice(1)}</span> {source.title}
+            </span>
+          </button>
         </li>
       ))}
     </ul>
