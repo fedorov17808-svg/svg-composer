@@ -7,6 +7,7 @@
   --accent: #3b6cff;
   --accent-bg: rgba(59, 108, 255, 0.1);
   --stage: #ebebef;
+  --select: #007aff;
 
   font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color: var(--text);
@@ -60,7 +61,7 @@ button {
 
 .app-body {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 280px;
+  grid-template-columns: clamp(220px, 22vw, 280px) minmax(0, 1fr) clamp(220px, 22vw, 280px);
   flex: 1;
   min-height: 0;
 }
@@ -185,6 +186,7 @@ button {
 
 .workspace-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
@@ -193,14 +195,12 @@ button {
 }
 
 .workspace-title {
+  flex: 1 1 120px;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.toolbar-spacer {
-  flex: 1;
 }
 
 .btn {
@@ -260,17 +260,19 @@ button {
 
 .overlay-box {
   fill: none;
-  stroke-width: 2;
+  shape-rendering: crispEdges;
 }
 
 .overlay-hover {
-  stroke: var(--accent);
-  stroke-dasharray: 5 3;
+  stroke: var(--select);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
 }
 
 .overlay-selected {
-  stroke: #ff3b6c;
-  fill: rgba(255, 59, 108, 0.06);
+  stroke: var(--select);
+  stroke-width: 2;
+  fill: rgba(0, 122, 255, 0.12);
 }
 
 .selection-list {

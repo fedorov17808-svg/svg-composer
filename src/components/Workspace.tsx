@@ -54,16 +54,15 @@ function SourceToolbar({ title }: { title: string }) {
       <button className="btn" onClick={close}>
         ← Назад к исходникам
       </button>
+      <button className="btn" onClick={levelUp} disabled={!canGoUp} title="Стрелка ↑">
+        ↑ Уровень выше
+      </button>
+      <button className="btn" onClick={levelDown} disabled={!canGoDown} title="Стрелка ↓">
+        ↓ Уровень ниже
+      </button>
       <span className="workspace-title" title={title}>
         {title}
       </span>
-      <span className="toolbar-spacer" />
-      <button className="btn" onClick={levelUp} disabled={!canGoUp} title="Стрелка ↑">
-        Уровень выше ↑
-      </button>
-      <button className="btn" onClick={levelDown} disabled={!canGoDown} title="Стрелка ↓">
-        Уровень ниже ↓
-      </button>
     </div>
   )
 }

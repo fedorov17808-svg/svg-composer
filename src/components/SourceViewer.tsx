@@ -34,15 +34,15 @@ function useElementSize(ref: React.RefObject<HTMLElement | null>) {
   return size
 }
 
-function Box({ node, kind }: { node: GroupNode; kind: 'hover' | 'selected' }) {
+/** Drawn in screen pixels (not viewBox units), so stroke width and dashes do not depend on zoom. */
+function Box({ node, kind, scale, vbX, vbY }: { node: GroupNode; kind: 'hover' | 'selected'; scale: number; vbX: number; vbY: number }) {
   return (
     <rect
       className={`overlay-box overlay-${kind}`}
-      x={node.x}
-      y={node.y}
-      width={node.width}
-      height={node.height}
-      vectorEffect="non-scaling-stroke"
+      x={(node.x - vbX) * scale}
+      y={(node.y - vbY) * scale}
+      width={node.width * scale}
+      height={node.height * scale}
     />
   )
 }
@@ -68,10 +68,10 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     }
   }, [source.file])
 
-  const [, , vbWidth, vbHeight] = source.viewBox.split(/[\s,]+/).map(Number)
+  const [vbX, vbY, vbWidth, vbHeight] = source.viewBox.split(/[\s,]+/).map(Number)
   const scale = Math.max(0, Math.min((stage.width - STAGE_PADDING * 2) / vbWidth, (stage.height - STAGE_PADDING * 2) / vbHeight))
-  const width = Math.floor(vbWidth * scale)
-  const height = Math.floor(vbHeight * scale)
+  const width = vbWidth * scale
+  const height = vbHeight * scale
 
   const ready = markup?.file === source.file
   const html = useMemo(() => ({ __html: ready ? markup.html : '' }), [ready, markup])
@@ -119,10 +119,13 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
               else if (!e.shiftKey) clearSelection()
             }}
           />
-          <svg className="source-overlay" viewBox={source.viewBox} aria-hidden="true">
-            {selection.map(({ node }) => nodes[node] && <Box key={node} node={nodes[node]} kind="selected" />)}
+          <svg className="source-overlay" aria-hidden="true">
+            {selection.map(
+              ({ node }) =>
+                nodes[node] && <Box key={node} node={nodes[node]} kind="selected" {...{ scale, vbX, vbY }} />,
+            )}
             {hover !== null && nodes[hover] && !selection.some((item) => item.node === hover) && (
-              <Box node={nodes[hover]} kind="hover" />
+              <Box node={nodes[hover]} kind="hover" {...{ scale, vbX, vbY }} />
             )}
           </svg>
         </div>
