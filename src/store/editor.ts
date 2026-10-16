@@ -10,11 +10,13 @@ export interface SelectedItem {
 interface EditorState {
   openSourceId: string | null
   nodes: GroupNode[]
+  /** Mounted `<g>` elements of the open source, same order as `nodes`. */
+  elements: SVGGElement[]
   hover: number | null
   selection: SelectedItem[]
   open: (id: string) => void
   close: () => void
-  setNodes: (nodes: GroupNode[]) => void
+  setNodes: (nodes: GroupNode[], elements: SVGGElement[]) => void
   setHover: (node: number | null) => void
   select: (node: number, additive: boolean) => void
   clearSelection: () => void
@@ -38,14 +40,15 @@ const normalize = (nodes: GroupNode[], items: SelectedItem[]) =>
 export const useEditorStore = create<EditorState>((set, get) => ({
   openSourceId: null,
   nodes: [],
+  elements: [],
   hover: null,
   selection: [],
   open: (id) => {
     if (get().openSourceId === id) return
-    set({ openSourceId: id, nodes: [], hover: null, selection: [] })
+    set({ openSourceId: id, nodes: [], elements: [], hover: null, selection: [] })
   },
-  close: () => set({ openSourceId: null, nodes: [], hover: null, selection: [] }),
-  setNodes: (nodes) => set({ nodes, hover: null, selection: [] }),
+  close: () => set({ openSourceId: null, nodes: [], elements: [], hover: null, selection: [] }),
+  setNodes: (nodes, elements) => set({ nodes, elements, hover: null, selection: [] }),
   setHover: (hover) => set({ hover }),
   select: (node, additive) => {
     const { nodes, selection } = get()

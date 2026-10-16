@@ -83,7 +83,7 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     if (useEditorStore.getState().nodes.length > 0 && elementsRef.current.size > 0) return
     const { nodes, elements } = collectGroups(svg)
     elementsRef.current = new Map(elements.map((el, i) => [el, i]))
-    setNodes(nodes)
+    setNodes(nodes, elements)
   }, [ready, html, width, setNodes])
 
   const groupAt = (target: EventTarget | null) => {

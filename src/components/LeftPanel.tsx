@@ -1,4 +1,5 @@
 import { useUiStore, type LeftTab } from '../store/ui'
+import { LibraryGrid } from './LibraryGrid'
 import { SourcesGrid } from './SourcesGrid'
 
 const TABS: { id: LeftTab; label: string }[] = [
@@ -33,13 +34,7 @@ export function LeftPanel() {
         id={`tabpanel-${leftTab}`}
         aria-labelledby={`tab-${leftTab}`}
       >
-        {leftTab === 'sources' ? (
-          <SourcesGrid />
-        ) : (
-          <p className="empty">
-            Библиотека пуста. Откройте исходник, выделите элемент и сохраните его как компонент.
-          </p>
-        )}
+        {leftTab === 'sources' ? <SourcesGrid /> : <LibraryGrid />}
       </div>
     </aside>
   )

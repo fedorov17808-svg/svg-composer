@@ -1,5 +1,6 @@
 import { LeftPanel } from './components/LeftPanel'
 import { RightPanel } from './components/RightPanel'
+import { Toast } from './components/Toast'
 import { Workspace } from './components/Workspace'
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Workspace />
         <RightPanel />
       </div>
+      <Toast />
     </div>
   )
 }
