@@ -1,4 +1,5 @@
 import { useUiStore, type LeftTab } from '../store/ui'
+import { SourcesGrid } from './SourcesGrid'
 
 const TABS: { id: LeftTab; label: string }[] = [
   { id: 'sources', label: 'Исходники' },
@@ -33,7 +34,7 @@ export function LeftPanel() {
         aria-labelledby={`tab-${leftTab}`}
       >
         {leftTab === 'sources' ? (
-          <p className="empty">Здесь появятся 20 исходных иллюстраций.</p>
+          <SourcesGrid />
         ) : (
           <p className="empty">
             Библиотека пуста. Откройте исходник, выделите элемент и сохраните его как компонент.

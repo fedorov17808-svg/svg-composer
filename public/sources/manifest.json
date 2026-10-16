@@ -1,0 +1,122 @@
+[
+  {
+    "id": "s01",
+    "title": "Гоферы и растущий график",
+    "file": "sources/s01.svg",
+    "viewBox": "0 0 144 144"
+  },
+  {
+    "id": "s02",
+    "title": "HEY! Гоферы за ограждением",
+    "file": "sources/s02.svg",
+    "viewBox": "0 0 144 144"
+  },
+  {
+    "id": "s03",
+    "title": "Гофер у магазина",
+    "file": "sources/s03.svg",
+    "viewBox": "0 0 144 144"
+  },
+  {
+    "id": "s04",
+    "title": "Гофер и календарь",
+    "file": "sources/s04.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s05",
+    "title": "Указатели Good code / Bugs & errors",
+    "file": "sources/s05.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s06",
+    "title": "Гоферы, гонг и доска го",
+    "file": "sources/s06.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s07",
+    "title": "Гофер со смартфоном и метками",
+    "file": "sources/s07.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s08",
+    "title": "Розовый гофер и копилка",
+    "file": "sources/s08.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s09",
+    "title": "Гофер в миске с лапшой",
+    "file": "sources/s09.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s10",
+    "title": "Гофер-мудрец с посохом",
+    "file": "sources/s10.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s11",
+    "title": "Гофер у пагоды",
+    "file": "sources/s11.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s12",
+    "title": "Гофер с фонарём",
+    "file": "sources/s12.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s13",
+    "title": "Гофер с пандой",
+    "file": "sources/s13.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s14",
+    "title": "Гофер-рыбак и карп",
+    "file": "sources/s14.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s15",
+    "title": "Гофер в VR-шлеме и лес",
+    "file": "sources/s15.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s16",
+    "title": "Видеозвонок двух гоферов",
+    "file": "sources/s16.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s17",
+    "title": "Гофер и бомба",
+    "file": "sources/s17.svg",
+    "viewBox": "0 0 600 600"
+  },
+  {
+    "id": "s18",
+    "title": "Йети и гофер",
+    "file": "sources/s18.svg",
+    "viewBox": "0 0 5000 5000"
+  },
+  {
+    "id": "s19",
+    "title": "Гофер-снеговик",
+    "file": "sources/s19.svg",
+    "viewBox": "0 0 5000 5000"
+  },
+  {
+    "id": "s20",
+    "title": "Гоферы у ёлки",
+    "file": "sources/s20.svg",
+    "viewBox": "0 0 600 600"
+  }
+]
