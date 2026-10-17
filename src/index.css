@@ -649,19 +649,18 @@ button {
   list-style: none;
 }
 
-.layer-item {
-  width: 100%;
-  padding: 4px 8px;
-  border: none;
+.layer-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 4px;
   border-radius: 5px;
-  background: none;
-  text-align: left;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  cursor: default;
 }
 
-.layer-item:hover {
+.layer-row:hover {
   background: var(--stage);
 }
 
@@ -670,6 +669,136 @@ button {
   background: var(--accent-bg);
   color: var(--accent);
   font-weight: 600;
+}
+
+.layer-hidden .layer-thumb,
+.layer-hidden .layer-name {
+  opacity: 0.45;
+}
+
+.layer-dragging {
+  opacity: 0.4;
+}
+
+.layer-drop-above::before,
+.layer-drop-below::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.layer-drop-above::before {
+  top: -2px;
+}
+
+.layer-drop-below::after {
+  bottom: -2px;
+}
+
+.layer-thumb {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.layer-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.layer-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 1px 4px;
+  font-size: 12px;
+}
+
+.layer-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--muted);
+  opacity: 0.35;
+}
+
+.layer-row:hover .layer-toggle,
+.layer-toggle-on {
+  opacity: 1;
+}
+
+.layer-toggle:hover {
+  color: var(--accent);
+}
+
+.canvas-zoom {
+  flex: none;
+  min-width: 3.5em;
+  font-weight: 600;
+  text-align: right;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+.tool-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+}
+
+.tool-btn:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--stage);
+  color: var(--accent);
+}
+
+.tool-btn:disabled {
+  color: var(--muted);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.frame-locked {
+  stroke-dasharray: 4 3;
 }
 
 .toast {

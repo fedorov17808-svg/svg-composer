@@ -18,6 +18,9 @@ export interface CanvasObject {
   /** Degrees, clockwise, around the box center. */
   rotation: number
   flipX: boolean
+  hidden?: boolean
+  /** Locked objects can be selected but not moved, scaled, rotated or flipped. */
+  locked?: boolean
 }
 
 export interface Size {
@@ -67,6 +70,15 @@ export const normalizeAngle = (deg: number) => {
   const a = ((deg % 360) + 360) % 360
   return a > 180 ? a - 360 : a
 }
+
+/**
+ * Mirror image across the vertical line through the box center, as seen on the canvas: the center
+ * stays put, and a rotated object turns the other way.
+ */
+export const flippedX = (obj: CanvasObject): Pick<CanvasObject, 'flipX' | 'rotation'> => ({
+  flipX: !obj.flipX,
+  rotation: normalizeAngle(-obj.rotation),
+})
 
 /** Elements that only render through a reference and can live in a shared `<defs>`. */
 const DEF_TAGS = 'clipPath, mask, linearGradient, radialGradient, pattern, filter, marker, symbol'

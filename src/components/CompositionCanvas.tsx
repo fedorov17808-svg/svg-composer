@@ -26,7 +26,17 @@ type Drag =
   | { kind: 'pan'; start: Point; view: View }
 
 const isTyping = (target: EventTarget | null) =>
-  target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement
+  target instanceof HTMLInputElement ||
+  target instanceof HTMLTextAreaElement ||
+  target instanceof HTMLSelectElement ||
+  (target instanceof HTMLElement && target.isContentEditable)
+
+const MOVES: Record<string, Point> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+}
 
 const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
 
@@ -45,6 +55,7 @@ const CanvasItem = memo(function CanvasItem({ obj, component }: { obj: CanvasObj
 
 /** Drawn in screen pixels, so line and handle sizes do not depend on zoom. */
 function SelectionFrame({ obj, size, view }: { obj: CanvasObject; size: Size; view: View }) {
+  const locked = obj.locked === true
   const screen = (u: number, v: number) => {
     const p = toCanvas(obj, size, u, v)
     return { x: view.x + p.x * view.zoom, y: view.y + p.y * view.zoom }
@@ -58,9 +69,13 @@ function SelectionFrame({ obj, size, view }: { obj: CanvasObject; size: Size; vi
   const rad = (obj.rotation * Math.PI) / 180
   const knob = { x: top.x + Math.sin(rad) * ROTATE_OFFSET, y: top.y - Math.cos(rad) * ROTATE_OFFSET }
 
+  const box = corners.map((c) => `${c.x},${c.y}`).join(' ')
+  // A locked object shows where it is, without handles to grab.
+  if (locked) return <polygon className="frame-box frame-locked" points={box} />
+
   return (
     <g>
-      <polygon className="frame-box" points={corners.map((c) => `${c.x},${c.y}`).join(' ')} />
+      <polygon className="frame-box" points={box} />
       <line className="frame-box" x1={top.x} y1={top.y} x2={knob.x} y2={knob.y} />
       {corners.map((c) => (
         <rect
@@ -93,7 +108,7 @@ export function CompositionCanvas() {
   const loadLibrary = useLibraryStore((s) => s.load)
 
   const byId = useMemo(() => new Map(components.map((c) => [c.id, c])), [components])
-  const visible = objects.filter((o) => byId.has(o.componentId))
+  const visible = objects.filter((o) => byId.has(o.componentId) && !o.hidden)
   const selected = visible.find((o) => o.id === selectedId)
 
   // Each component's definitions once, however many instances it has.
@@ -178,18 +193,28 @@ export function CompositionCanvas() {
         setSpaceDown(true)
         return
       }
-      const { objects, selectedId, update, select } = useCanvasStore.getState()
-      const obj = objects.find((o) => o.id === selectedId)
-      const step = e.shiftKey ? 10 : 1
-      const moves: Record<string, Point> = {
-        ArrowLeft: { x: -step, y: 0 },
-        ArrowRight: { x: step, y: 0 },
-        ArrowUp: { x: 0, y: -step },
-        ArrowDown: { x: 0, y: step },
+      const canvas = useCanvasStore.getState()
+      const obj = canvas.objects.find((o) => o.id === canvas.selectedId)
+      // Physical keys, so shortcuts work in any keyboard layout.
+      if (e.metaKey || e.ctrlKey) {
+        if (e.code === 'KeyZ') {
+          if (e.shiftKey) canvas.redo()
+          else canvas.undo()
+        } else if (e.code === 'KeyD') canvas.duplicate()
+        else if (e.code === 'BracketRight' && obj) canvas.reorder(obj.id, e.shiftKey ? 'front' : 'forward')
+        else if (e.code === 'BracketLeft' && obj) canvas.reorder(obj.id, e.shiftKey ? 'back' : 'backward')
+        else return
+        e.preventDefault()
+        return
       }
-      if (e.key in moves && obj) update(obj.id, { x: obj.x + moves[e.key].x, y: obj.y + moves[e.key].y })
-      else if (e.key === 'Escape') select(null)
-      else return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && obj) canvas.remove(obj.id)
+      else if (e.code === 'KeyH' && !e.altKey && obj) canvas.flip(obj.id)
+      else if (e.key === 'Escape') canvas.select(null)
+      else if (e.key in MOVES && obj && !obj.locked) {
+        const step = e.shiftKey ? 10 : 1
+        const move = MOVES[e.key]
+        canvas.update(obj.id, { x: obj.x + move.x * step, y: obj.y + move.y * step }, `nudge:${obj.id}`)
+      } else return
       e.preventDefault()
     }
     const onKeyUp = (e: KeyboardEvent) => {
@@ -222,7 +247,7 @@ export function CompositionCanvas() {
     } else {
       const handle = target.closest('[data-handle]')?.getAttribute('data-handle')
       const component = selected && byId.get(selected.componentId)
-      if (handle && selected && component) {
+      if (handle && selected && component && !selected.locked) {
         if (handle === 'rotate') {
           drag = { kind: 'rotate', id: selected.id, center: boxCenter(selected, component) }
         } else {
@@ -248,10 +273,11 @@ export function CompositionCanvas() {
         }
         const obj = id ? visible.find((o) => o.id === id) : undefined
         select(obj?.id ?? null)
-        if (obj) drag = { kind: 'move', id: obj.id, start: c, origin: { x: obj.x, y: obj.y } }
+        if (obj && !obj.locked) drag = { kind: 'move', id: obj.id, start: c, origin: { x: obj.x, y: obj.y } }
       }
     }
     if (!drag) return
+    if (drag.kind !== 'pan') useCanvasStore.getState().beginGesture()
     dragRef.current = drag
     e.currentTarget.setPointerCapture(e.pointerId)
   }
@@ -289,6 +315,7 @@ export function CompositionCanvas() {
   }
 
   const endDrag = () => {
+    if (dragRef.current && dragRef.current.kind !== 'pan') useCanvasStore.getState().endGesture()
     dragRef.current = null
     setPanning(false)
   }

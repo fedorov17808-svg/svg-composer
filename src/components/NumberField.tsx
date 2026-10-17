@@ -12,11 +12,12 @@ interface NumberFieldProps {
   /** Apply every valid keystroke and spinner step, not only on Enter/blur. */
   live?: boolean
   suffix?: string
+  disabled?: boolean
 }
 
 const format = (value: number, digits: number) => String(+value.toFixed(digits))
 
-export function NumberField({ label, value, onCommit, min, max, step = 1, digits = 1, live = false, suffix }: NumberFieldProps) {
+export function NumberField({ label, value, onCommit, min, max, step = 1, digits = 1, live = false, suffix, disabled }: NumberFieldProps) {
   const [draft, setDraft] = useState<string | null>(null)
 
   const parse = (text: string) => {
@@ -44,6 +45,7 @@ export function NumberField({ label, value, onCommit, min, max, step = 1, digits
           step={step}
           min={min}
           max={max}
+          disabled={disabled}
           value={draft ?? format(value, digits)}
           onChange={(e) => {
             setDraft(e.target.value)

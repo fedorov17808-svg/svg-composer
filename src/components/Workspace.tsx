@@ -3,6 +3,7 @@ import { useCanvasStore } from '../store/canvas'
 import { useEditorStore } from '../store/editor'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore, type WorkspaceMode } from '../store/ui'
+import { CanvasToolbar } from './CanvasToolbar'
 import { CompositionCanvas } from './CompositionCanvas'
 import { NumberField } from './NumberField'
 import { SourceViewer } from './SourceViewer'
@@ -65,13 +66,14 @@ function CanvasControls() {
   const { size, view, setSize, fit } = useCanvasStore()
   return (
     <>
+      <CanvasToolbar />
       <span className="canvas-size">
         <span className="muted">Холст</span>
         <NumberField label="Ширина" value={size.width} min={16} max={10000} digits={0} onCommit={(width) => setSize({ ...size, width })} />
         <span className="muted">×</span>
         <NumberField label="Высота" value={size.height} min={16} max={10000} digits={0} onCommit={(height) => setSize({ ...size, height })} />
       </span>
-      <span className="workspace-title muted">{Math.round(view.zoom * 100)}%</span>
+      <span className="canvas-zoom muted">{Math.round(view.zoom * 100)}%</span>
       <button className="btn" onClick={fit} title="Показать холст целиком">
         Вписать
       </button>
