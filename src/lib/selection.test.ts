@@ -63,7 +63,7 @@ describe('pickInRect', () => {
     { ...group(0), x: 120, y: 20, width: 60, height: 90 },
   ]
   const leaves = [leaf(0, 0, 0, 150, 80), leaf(1, 120, 20, 60, 90), leaf(1, 130, 30, 5, 5)]
-  const objectOf = (g: number) => nodes[g === 0 ? 0 : 1]
+  const objectOf = (l: number) => nodes[leaves[l].parent === 0 ? 0 : 1]
 
   it('takes the calendar but does not cut the gopher sticking out of the rect apart', () => {
     expect(pickInRect(leaves, { x: 0, y: 0, width: 160, height: 85 }, objectOf)).toEqual([0])

@@ -28,16 +28,15 @@ const area = (r: Rect) => r.width * r.height
 
 /**
  * Leaves a marquee picks. A leaf counts when it is entirely inside the rect and the marquee does not
- * cut a smaller object apart: the object (bounds of what a click on the leaf selects, `objectOf`) is entirely
+ * cut a smaller object apart: the object (bounds of what a click on the leaf selects, `objectOf`; null for a loose leaf) is entirely
  * inside the rect too, or it is bigger than the rect — then the marquee picks details within it. So a
  * rect around a calendar skips the eyes of a gopher standing in front of it, while a rect around a
  * gopher made of loose details in a big scene group picks those details.
  */
-export function pickInRect(leaves: LeafNode[], rect: Rect, objectOf: (group: number) => Rect) {
+export function pickInRect(leaves: LeafNode[], rect: Rect, objectOf: (leaf: number) => Rect | null) {
   return leavesInRect(leaves, rect).filter((l) => {
-    const parent = leaves[l].parent
-    if (parent < 0) return true
-    const object = objectOf(parent)
+    const object = objectOf(l)
+    if (!object) return true
     return contains(rect, object) || area(object) > area(rect)
   })
 }

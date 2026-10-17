@@ -1,9 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Rect } from '../lib/selection'
 import { collectGroups } from '../lib/svgGroups'
-import { unionRects } from '../lib/extract'
-import { objectMembers } from '../lib/objects'
-import { byAnchor, clickedObject, useEditorStore } from '../store/editor'
+import { clickedObject, selectionUnits, useEditorStore, type ClickTarget } from '../store/editor'
 import { assetUrl, type SourceInfo } from '../store/sources'
 
 const STAGE_PADDING = 24
@@ -70,7 +68,8 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   const [markup, setMarkup] = useState<{ file: string; html: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const { nodes, owners, leaves, hover, selection, selectedLeaves, setNodes, setHover } = useEditorStore()
+  const editor = useEditorStore()
+  const { objects, hover, setNodes, setHover } = editor
 
   useEffect(() => {
     let cancelled = false
@@ -111,6 +110,14 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   }
   const groupAt = (target: EventTarget | null) => indexAt(elementsRef.current, target)
   const leafAt = (target: EventTarget | null) => indexAt(leavesRef.current, target)
+  /** What a click on `target` starts from: a shape that is a part of an object, or its group. */
+  const clickTarget = (target: EventTarget | null): ClickTarget | null => {
+    const { leaves, leafObject } = useEditorStore.getState()
+    const group = groupAt(target)
+    const leaf = leafAt(target)
+    if (leaf !== null && leafObject[leaf] >= 0 && leaves[leaf].parent === (group ?? -1)) return { leaf }
+    return group === null ? null : { group }
+  }
 
   /** Client point → source viewBox units. */
   const toSource = (clientX: number, clientY: number) => {
@@ -136,8 +143,9 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     const press = pressRef.current
     if (!press) {
       // Preview what a click would select.
-      const clicked = groupAt(e.target)
-      const index = clicked === null ? null : owners[clickedObject(nodes, owners, clicked)[0]]
+      const state = useEditorStore.getState()
+      const target = clickTarget(e.target)
+      const index = target === null ? null : state.objects.indexOf(clickedObject(state, target))
       if (index !== hover) setHover(index)
       return
     }
@@ -160,21 +168,20 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     }
     // Pointer capture retargets events to the stage; find what is under the pointer instead.
     const target = document.elementFromPoint(e.clientX, e.clientY)
-    const group = groupAt(target)
+    const clicked = clickTarget(target)
     const leaf = leafAt(target)
     if (e.altKey && e.shiftKey) {
       if (leaf !== null) store.deselectLeaf(leaf)
-    } else if (group !== null) store.select(group, e.shiftKey)
+    } else if (clicked && 'leaf' in clicked) store.selectLeaf(clicked.leaf, e.shiftKey)
+    else if (clicked) store.select(clicked.group, e.shiftKey)
     else if (leaf !== null) store.selectLeaf(leaf, e.shiftKey)
     else if (!e.shiftKey) store.clearSelection()
   }
 
   const box = { scale, vbX, vbY }
-  // One frame per click: an object's parts share the anchor.
-  const selectedBoxes = byAnchor(selection).flatMap((items) => {
-    const rects = items.map((item) => nodes[item.node]).filter(Boolean)
-    return rects.length ? [unionRects(rects)] : []
-  })
+  // One frame per object, however many groups and shapes it is made of.
+  const units = selectionUnits(editor)
+  const hovered = hover !== null && objects[hover] && !units.some((u) => u.object === hover) ? objects[hover].box : null
 
   return (
     <div
@@ -195,13 +202,10 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
         <div className="source-frame" style={{ width, height }}>
           <div ref={hostRef} className="source-host" dangerouslySetInnerHTML={html} />
           <svg className="source-overlay" aria-hidden="true">
-            {selectedBoxes.map((rect, i) => (
-              <Box key={i} node={rect} kind="selected" {...box} />
+            {units.map((u, i) => (
+              <Box key={i} node={u.box} kind="selected" {...box} />
             ))}
-            {selectedLeaves.map((l) => leaves[l] && <Box key={`l${l}`} node={leaves[l]} kind="selected" {...box} />)}
-            {hover !== null && nodes[hover] && !selection.some((item) => item.node === hover) && (
-              <Box node={unionRects(objectMembers(owners, hover).map((n) => nodes[n]))} kind="hover" {...box} />
-            )}
+            {hovered && <Box node={hovered} kind="hover" {...box} />}
             {marquee && <Box node={marquee} kind="marquee" {...box} />}
           </svg>
         </div>

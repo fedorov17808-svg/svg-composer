@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { normalizeAngle, type CanvasObject } from '../lib/canvas'
 import { componentSvg, extract, unionRects } from '../lib/extract'
 import { useCanvasStore } from '../store/canvas'
-import { byAnchor, selectedParts, useEditorStore } from '../store/editor'
+import { selectedParts, selectionUnits, useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
@@ -35,8 +35,8 @@ function SizeText({ width, height }: { width: number; height: number }) {
 function SelectionInfo() {
   const state = useEditorStore()
   const { nodes, leaves, selection, selectedLeaves } = state
-  // One card per click: an object's groups share the anchor.
-  const objects = byAnchor(selection)
+  // One card per object, however many groups and shapes it is made of.
+  const units = selectionUnits(state)
 
   if (selection.length === 0 && selectedLeaves.length === 0) {
     return (
@@ -47,11 +47,13 @@ function SelectionInfo() {
     )
   }
 
-  if (objects.length + selectedLeaves.length > MAX_CARDS) {
+  if (units.length > MAX_CARDS) {
     const box = unionRects(selectedParts(state).bounds)
     return (
       <div className="selection-item">
         <dl className="props">
+          <dt>Объектов</dt>
+          <dd>{units.length}</dd>
           <dt>Групп</dt>
           <dd>{selection.length}</dd>
           <dt>Деталей</dt>
@@ -67,56 +69,64 @@ function SelectionInfo() {
 
   return (
     <ul className="selection-list">
-      {objects.map((items) => {
-        const groups = items.map((item) => nodes[item.node]).filter(Boolean)
-        if (groups.length === 0) return null
-        const main = groups.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a))
-        const index = nodes.indexOf(main)
-        const box = unionRects(groups)
-        const numbers = items.map((item) => `№${item.node + 1}`).join(', ')
+      {units.map((u) => {
+        const groups = u.items.map((item) => nodes[item.node])
+        const shapes = u.leaves.map((l) => leaves[l])
+        const pieces = groups.length + shapes.length
+        const key = u.items.length ? `g${u.items[0].node}` : `l${u.leaves[0]}`
+        const depth = groups.length ? Math.min(...groups.map((g) => g.depth)) : null
+        const numbers = [...u.items.map((item) => `№${item.node + 1}`), ...u.leaves.map((l) => `деталь №${l + 1}`)].join(', ')
+        const plural = (n: number, one: string, few: string, many: string) =>
+          `${n} ${n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many}`
         return (
-          <li key={items[0].anchor} className="selection-item">
+          <li key={key} className="selection-item">
             <dl className="props">
-              <dt>{groups.length > 1 ? 'Объект' : 'id'}</dt>
-              <dd>
-                {groups.length > 1 ? (
-                  <span title={`группы ${numbers}`}>
-                    {groups.length} групп <span className="muted">({numbers})</span>
-                  </span>
-                ) : main.id ? (
-                  <code>{main.id}</code>
-                ) : (
-                  <span className="muted">— (группа №{index + 1})</span>
-                )}
-              </dd>
+              {pieces > 1 ? (
+                <>
+                  <dt>Объект</dt>
+                  <dd title={numbers}>
+                    {[groups.length && plural(groups.length, 'группа', 'группы', 'групп'), shapes.length && plural(shapes.length, 'деталь', 'детали', 'деталей')]
+                      .filter(Boolean)
+                      .join(' + ')}
+                    {groups.length > 0 && groups.length <= 6 && (
+                      <span className="muted"> ({u.items.map((item) => `№${item.node + 1}`).join(', ')})</span>
+                    )}
+                  </dd>
+                </>
+              ) : groups.length ? (
+                <>
+                  <dt>id</dt>
+                  <dd>
+                    {groups[0].id ? <code>{groups[0].id}</code> : <span className="muted">— (группа №{u.items[0].node + 1})</span>}
+                  </dd>
+                </>
+              ) : (
+                <>
+                  <dt>Деталь</dt>
+                  <dd>
+                    <code>{shapes[0].tag}</code> <span className="muted">№{u.leaves[0] + 1}</span>
+                  </dd>
+                </>
+              )}
               <dt>Размер</dt>
               <dd>
-                <SizeText {...box} />
+                <SizeText {...u.box} />
               </dd>
-              <dt>Вложено</dt>
-              <dd>
-                {groups.reduce((n, g) => n + g.elementCount, 0)} эл. (групп: {groups.reduce((n, g) => n + g.groupCount, 0)})
-              </dd>
-              <dt>Уровень</dt>
-              <dd>{main.depth + 1}</dd>
-            </dl>
-          </li>
-        )
-      })}
-      {selectedLeaves.map((index) => {
-        const leaf = leaves[index]
-        if (!leaf) return null
-        return (
-          <li key={`l${index}`} className="selection-item">
-            <dl className="props">
-              <dt>Деталь</dt>
-              <dd>
-                <code>{leaf.tag}</code> <span className="muted">№{index + 1}</span>
-              </dd>
-              <dt>Размер</dt>
-              <dd>
-                <SizeText {...leaf} />
-              </dd>
+              {groups.length > 0 && (
+                <>
+                  <dt>Вложено</dt>
+                  <dd>
+                    {groups.reduce((n, g) => n + g.elementCount, 0) + shapes.length} эл. (групп:{' '}
+                    {groups.reduce((n, g) => n + g.groupCount, 0) + groups.length - (pieces > 1 ? 0 : 1)})
+                  </dd>
+                </>
+              )}
+              {depth !== null && (
+                <>
+                  <dt>Уровень</dt>
+                  <dd>{depth + 1}</dd>
+                </>
+              )}
             </dl>
           </li>
         )

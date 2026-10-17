@@ -439,7 +439,8 @@ button {
   object-fit: contain;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: repeating-conic-gradient(#f3f3f6 0 25%, #fff 0 50%) 0 0 / 12px 12px;
+  /* Mid grey: white eye whites and black outlines both stand out. */
+  background: repeating-conic-gradient(#a9a9b2 0 25%, #c4c4cc 0 50%) 0 0 / 12px 12px;
 }
 
 .extract-preview figcaption {

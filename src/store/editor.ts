@@ -1,36 +1,52 @@
 import { create } from 'zustand'
 import { unionRects } from '../lib/extract'
-import { buildObjects, objectMembers } from '../lib/objects'
+import {
+  area as areaOf,
+  buildObjects,
+  isFigure,
+  MAX_ILLUSTRATION_SHARE,
+  otherFigures,
+  type Areas,
+  type ObjectIndex,
+  type SceneObject,
+} from '../lib/objects'
 import { collapse, groupLeaves, leafInGroup, pickInRect, type Rect } from '../lib/selection'
 import type { GroupNode, LeafNode } from '../lib/svgGroups'
 
 export interface SelectedItem {
   node: number
-  /** Group originally clicked; "level down" walks back towards it. */
+  /** What was clicked: a group index, or `-(leaf + 1)` for a shape. "Level down" walks back to it. */
   anchor: number
 }
 
-export interface EditorState {
-  openSourceId: string | null
+/** What a click starts from: a group, or a loose shape that is a part of an object. */
+export type ClickTarget = { group: number } | { leaf: number }
+
+export interface SourceIndex {
   nodes: GroupNode[]
   /** Mounted `<g>` elements of the open source, same order as `nodes`. */
   elements: SVGGElement[]
-  /** Main group of each group's logical object (see `buildObjects`), same order as `nodes`. */
-  owners: number[]
-  /** Drawable non-group elements, for marquee selection. */
+  /** Drawable non-group elements, for marquee selection and loose parts of objects. */
   leaves: LeafNode[]
   leafElements: SVGGraphicsElement[]
-  /** Main group of the object a click would select. */
+  viewBox: Rect
+}
+
+export interface EditorState extends SourceIndex, ObjectIndex {
+  openSourceId: string | null
+  /** Object a click would select, under the pointer. */
   hover: number | null
+  /** Selected groups. */
   selection: SelectedItem[]
-  /** Leaves picked one by one (marquee, click on an ungrouped shape), not covered by `selection`. */
+  /** Selected leaves not covered by `selection`: parts of objects, marquee picks, loose shapes. */
   selectedLeaves: number[]
   open: (id: string) => void
   close: () => void
-  setNodes: (index: { nodes: GroupNode[]; elements: SVGGElement[]; leaves: LeafNode[]; leafElements: SVGGraphicsElement[] }) => void
-  setHover: (node: number | null) => void
-  select: (node: number, additive: boolean) => void
-  /** Click on a shape that belongs to no group. */
+  setNodes: (index: SourceIndex) => void
+  setHover: (object: number | null) => void
+  /** Click on a group: selects the object the click means (see `clickedObject`). */
+  select: (group: number, additive: boolean) => void
+  /** Click on a shape that is a part of an object (its object), or that belongs to no group. */
   selectLeaf: (leaf: number, additive: boolean) => void
   /** Selects leaves fully inside `rect` (viewBox units), see `pickInRect`; complete groups are taken whole. */
   selectRect: (rect: Rect, additive: boolean) => void
@@ -54,46 +70,74 @@ const SAME_OBJECT_AREA_RATIO = 1.5
 /** Area of the union of top-level groups: the drawing itself, without empty margins. */
 function sceneArea(nodes: GroupNode[]) {
   const top = nodes.filter((n) => n.parent < 0 && n.width > 0 && n.height > 0)
-  if (top.length === 0) return 0
-  const x = Math.min(...top.map((n) => n.x))
-  const y = Math.min(...top.map((n) => n.y))
-  const right = Math.max(...top.map((n) => n.x + n.width))
-  const bottom = Math.max(...top.map((n) => n.y + n.height))
-  return (right - x) * (bottom - y)
+  return top.length ? areaOf(unionRects(top)) : 0
 }
 
-const areaOf = (n: Rect) => n.width * n.height
+export const areasOf = ({ nodes, viewBox }: Pick<SourceIndex, 'nodes' | 'viewBox'>): Areas => ({
+  scene: sceneArea(nodes),
+  illustration: areaOf(viewBox) || sceneArea(nodes),
+})
+
+type ObjectState = Pick<EditorState, 'nodes' | 'viewBox' | keyof ObjectIndex>
+
+const startObject = (state: ObjectState, target: ClickTarget) =>
+  'group' in target ? state.objects[state.groupObject[target.group]] : state.objects[state.leafObject[target.leaf]]
 
 /**
- * Walks up from the clicked group to a meaningful object: big enough and not just a layer of its
- * parent, or directly under the root. Works on logical objects (`owners`, see `buildObjects`): the
- * size of a group is the size of its whole object, so a gopher body with its face, ears and paws is
- * compared with the parent, not the body alone. Returns the object's groups in document order.
+ * Walks up from the clicked object to a meaningful one: a figure (a character, a big prop) that is
+ * not just a layer of its parent, or the top level. Objects (`buildObjects`) are compared by their
+ * whole box, so a gopher body with its face, ears and paws is compared with the parent, not the body
+ * alone. The walk never enters an object bigger than 70 % of the illustration, nor a scene: from a
+ * figure, a group with another figure; from a small part, a group with two figures (a gong between
+ * two gophers).
  */
-export function clickedObject(nodes: GroupNode[], owners: number[], clicked: number, area = sceneArea(nodes)) {
-  let n = clicked
+export function clickedObject(state: ObjectState, target: ClickTarget, areas = areasOf(state)): SceneObject {
+  let object = startObject(state, target)
   for (;;) {
-    const members = objectMembers(owners, n)
-    const p = nodes[n].parent
-    if (p < 0) return members
-    const own = areaOf(unionRects(members.map((m) => nodes[m])))
-    const small = own < area * MIN_AREA_SHARE
-    const layer = areaOf(nodes[p]) <= own * SAME_OBJECT_AREA_RATIO
-    if (!small && !layer) return members
-    n = p
+    const p = object.parent
+    if (p < 0) return object
+    const own = areaOf(object.box)
+    const small = own < areas.scene * MIN_AREA_SHARE
+    const layer = areaOf(state.nodes[p]) <= own * SAME_OBJECT_AREA_RATIO
+    const figure = isFigure({ ...object.box, elementCount: object.elementCount }, areas)
+    if (!small && !layer && figure) return object
+    const parent = state.objects[state.groupObject[p]]
+    if (areaOf(parent.box) > areas.illustration * MAX_ILLUSTRATION_SHARE) return object
+    // A figure stays out of a group with another figure; a small part (a paw, a gong) joins the
+    // figure it belongs to, but stays out of a group with two of them.
+    if (otherFigures(state, state.nodes, p, object, areas) > (figure ? 0 : 1)) return object
+    object = parent
   }
 }
 
-/** `clickedObject` for plain groups, without logical objects. */
-export const meaningfulGroup = (nodes: GroupNode[], node: number, area = sceneArea(nodes)) =>
-  clickedObject(nodes, nodes.map((_, i) => i), node, area)[0]
+/** `clickedObject` for plain groups, without logical objects: each group is its own object. */
+export function meaningfulGroup(nodes: GroupNode[], node: number) {
+  const objects = nodes.map((n, i) => ({
+    parent: n.parent,
+    groups: [i],
+    leaves: [],
+    box: { x: n.x, y: n.y, width: n.width, height: n.height },
+    elementCount: n.elementCount,
+  }))
+  const state = {
+    nodes,
+    viewBox: { x: 0, y: 0, width: 0, height: 0 },
+    objects,
+    groupObject: nodes.map((_, i) => i),
+    leafObject: [],
+  }
+  return clickedObject(state, { group: node }).groups[0]
+}
 
 const EMPTY_SOURCE = {
   nodes: [],
   elements: [],
-  owners: [],
   leaves: [],
   leafElements: [],
+  viewBox: { x: 0, y: 0, width: 0, height: 0 },
+  objects: [],
+  groupObject: [],
+  leafObject: [],
   hover: null,
   selection: [],
   selectedLeaves: [],
@@ -125,23 +169,7 @@ const isAncestor = (nodes: GroupNode[], ancestor: number, node: number) => {
   return false
 }
 
-/** Items picked by one click (or level step), grouped by their anchor. */
-export function byAnchor(items: SelectedItem[]) {
-  const groups = new Map<number, SelectedItem[]>()
-  for (const item of items) groups.set(item.anchor, [...(groups.get(item.anchor) ?? []), item])
-  return [...groups.values()]
-}
-
 const covers = (nodes: GroupNode[], node: number, target: number) => node === target || isAncestor(nodes, node, target)
-
-/** Whether "level down" changes anything: an object narrows to one group, a group to its child. */
-export const canLevelDown = ({ nodes, selection }: Pick<EditorState, 'nodes' | 'selection'>) =>
-  byAnchor(selection).some((items) => items.length > 1 || nodes[items[0].node]?.children.length > 0)
-
-/** Whether "level up" changes anything: a group widens to its object or its parent. */
-export const canLevelUp = ({ nodes, owners, leaves, selection, selectedLeaves }: EditorState) =>
-  selection.some((item) => nodes[item.node]?.parent >= 0 || objectMembers(owners, item.node).length > 1) ||
-  selectedLeaves.some((l) => leaves[l]?.parent >= 0)
 
 /** Drops duplicates and items already covered by a selected ancestor. */
 const normalize = (nodes: GroupNode[], items: SelectedItem[]) =>
@@ -151,104 +179,202 @@ const normalize = (nodes: GroupNode[], items: SelectedItem[]) =>
       !items.some((other) => isAncestor(nodes, other.node, item.node)),
   )
 
-export const useEditorStore = create<EditorState>((set, get) => ({
-  openSourceId: null,
-  ...EMPTY_SOURCE,
-  open: (id) => {
-    if (get().openSourceId === id) return
-    set({ openSourceId: id, ...EMPTY_SOURCE })
-  },
-  close: () => set({ openSourceId: null, ...EMPTY_SOURCE }),
-  setNodes: (index) => set({ ...index, owners: buildObjects(index.nodes), hover: null, selection: [], selectedLeaves: [] }),
-  setHover: (hover) => set({ hover }),
-  select: (clicked, additive) => {
-    const { nodes, owners, selection } = get()
-    // The clicked group stays the anchor, so "level down" refines back to it.
-    const picked = clickedObject(nodes, owners, clicked).map((node) => ({ node, anchor: clicked }))
-    if (!additive) return set({ selection: picked, selectedLeaves: [] })
-    // Shift+click inside an already selected group removes everything that click selected.
-    const hit = selection.filter((item) => covers(nodes, item.node, clicked)).map((item) => item.anchor)
-    if (hit.length) return set({ selection: selection.filter((item) => !hit.includes(item.anchor)) })
-    const kept = selection.filter((item) => !picked.some((p) => isAncestor(nodes, p.node, item.node)))
-    const { leaves, selectedLeaves } = get()
-    set({
-      selection: normalize(nodes, [...kept, ...picked]),
-      selectedLeaves: selectedLeaves.filter((l) => !picked.some((p) => leafInGroup(nodes, leaves, l, p.node))),
-    })
-  },
-  selectLeaf: (leaf, additive) => {
-    const { selectedLeaves } = get()
-    if (!additive) return set({ selection: [], selectedLeaves: [leaf] })
-    if (selectedLeaves.includes(leaf)) return get().deselectLeaf(leaf)
-    get().setPicked([...pickedLeaves(get()), leaf])
-  },
-  selectRect: (rect, additive) => {
-    const { nodes, owners, leaves } = get()
-    const area = sceneArea(nodes)
-    const inside = pickInRect(leaves, rect, (group) =>
-      unionRects(clickedObject(nodes, owners, group, area).map((n) => nodes[n])),
+/** One selected thing as the user sees it: an object (or part of one), a group, or a loose shape. */
+export interface SelectionUnit {
+  /** Object index, or -1 for a loose leaf. */
+  object: number
+  items: SelectedItem[]
+  leaves: number[]
+  box: Rect
+}
+
+/** Selected groups and leaves put together by object: one frame and one card per unit. */
+export function selectionUnits(
+  state: Pick<EditorState, 'nodes' | 'leaves' | 'selection' | 'selectedLeaves' | 'groupObject' | 'leafObject'>,
+): SelectionUnit[] {
+  const units = new Map<string, SelectionUnit>()
+  const unit = (key: string, object: number) => {
+    if (!units.has(key)) units.set(key, { object, items: [], leaves: [], box: { x: 0, y: 0, width: 0, height: 0 } })
+    return units.get(key)!
+  }
+  for (const item of state.selection) {
+    const o = state.groupObject[item.node] ?? -1
+    unit(o >= 0 ? `o${o}` : `g${item.node}`, o).items.push(item)
+  }
+  for (const l of state.selectedLeaves) {
+    const o = state.leafObject[l] ?? -1
+    unit(o >= 0 ? `o${o}` : `l${l}`, o).leaves.push(l)
+  }
+  return [...units.values()].flatMap((u) => {
+    const rects = [...u.items.map((item) => state.nodes[item.node]), ...u.leaves.map((l) => state.leaves[l])]
+    return rects.every(Boolean) && rects.length ? [{ ...u, box: unionRects(rects) }] : []
+  })
+}
+
+const memberCount = (o: SceneObject) => o.groups.length + o.leaves.length
+
+/** Whether the unit holds every member of its object. */
+const isWhole = (state: Pick<EditorState, 'objects'>, u: SelectionUnit) =>
+  u.object < 0 || u.items.length + u.leaves.length === memberCount(state.objects[u.object])
+
+/** Whether "level down" changes anything: an object narrows to what was clicked, a group to its child. */
+export const canLevelDown = (state: EditorState) =>
+  selectionUnits(state).some(
+    (u) => u.items.length + u.leaves.length > 1 || u.items.some((item) => state.nodes[item.node]?.children.length > 0),
+  )
+
+/** Whether "level up" changes anything: a part widens to its object, an object to its parent's. */
+export const canLevelUp = (state: EditorState) =>
+  selectionUnits(state).some((u) => {
+    if (!isWhole(state, u)) return true
+    if (u.object >= 0) return state.objects[u.object].parent >= 0
+    return u.leaves.some((l) => state.leaves[l]?.parent >= 0)
+  })
+
+/** Selection of a whole object, every group with the given anchor. */
+const objectSelection = (o: SceneObject, anchor: number) => ({
+  items: o.groups.map((node) => ({ node, anchor })),
+  leaves: o.leaves,
+})
+
+export const useEditorStore = create<EditorState>((set, get) => {
+  /** Selects the object a click means; with Shift adds it, or removes the clicked unit if selected. */
+  const pick = (target: ClickTarget, anchor: number, additive: boolean) => {
+    const state = get()
+    const { nodes, leaves, selection, selectedLeaves } = state
+    const picked = objectSelection(clickedObject(state, target), anchor)
+    if (!additive) return set({ selection: picked.items, selectedLeaves: picked.leaves })
+    const hit = selectionUnits(state).find((u) =>
+      'group' in target
+        ? u.items.some((item) => covers(nodes, item.node, target.group))
+        : u.leaves.includes(target.leaf) || u.items.some((item) => leafInGroup(nodes, leaves, target.leaf, item.node)),
     )
-    get().setPicked(additive ? [...pickedLeaves(get()), ...inside] : inside)
-  },
-  deselectLeaf: (leaf) => {
-    const { nodes, leaves, selection, selectedLeaves } = get()
-    if (selectedLeaves.includes(leaf)) return set({ selectedLeaves: selectedLeaves.filter((l) => l !== leaf) })
-    const owner = selection.find((item) => leafInGroup(nodes, leaves, leaf, item.node))
-    if (!owner) return
-    // The group falls apart into the rest of its leaves; complete subgroups come back whole.
-    const rest = collapse(nodes, leaves, groupLeaves(nodes, leaves, owner.node).filter((l) => l !== leaf))
-    set({
-      selection: [
-        ...selection.filter((item) => item !== owner),
-        ...rest.groups.map((node) => ({ node, anchor: node })),
-      ],
-      selectedLeaves: [...selectedLeaves, ...rest.leaves].sort((a, b) => a - b),
-    })
-  },
-  setPicked: (picked) => {
-    const { nodes, leaves, selection } = get()
-    const { groups, leaves: rest } = collapse(nodes, leaves, picked)
-    // Groups that were selected before keep their anchor for "level down".
-    const items = groups.map((node) => selection.find((item) => item.node === node) ?? { node, anchor: node })
-    set({ selection: items, selectedLeaves: rest })
-  },
-  clearSelection: () => set({ selection: [], selectedLeaves: [] }),
-  levelUp: () => {
-    const { nodes, owners, leaves, selection, selectedLeaves } = get()
-    // A part of an object widens to the whole object first, a whole object to its parent's object.
-    const next = byAnchor(selection).flatMap((items) => {
-      const { anchor } = items[0]
-      const object = objectMembers(owners, items[0].node)
-      const whole = object.every((n) => items.some((item) => item.node === n))
-      if (!whole) return object.map((node) => ({ node, anchor }))
-      const parents = [...new Set(items.map((item) => nodes[item.node].parent))]
-      if (parents.some((p) => p < 0)) return items
-      return parents.flatMap((p) => objectMembers(owners, p)).map((node) => ({ node, anchor }))
-    })
-    // A loose leaf goes up to its group; leaves right under the root stay.
-    for (const l of selectedLeaves) {
-      const parent = leaves[l].parent
-      if (parent >= 0) next.push({ node: parent, anchor: parent })
+    if (hit) {
+      return set({
+        selection: selection.filter((item) => !hit.items.includes(item)),
+        selectedLeaves: selectedLeaves.filter((l) => !hit.leaves.includes(l)),
+      })
     }
-    const groups = normalize(nodes, next)
+    const kept = selection.filter((item) => !picked.items.some((p) => isAncestor(nodes, p.node, item.node)))
     set({
-      selection: groups,
-      selectedLeaves: selectedLeaves.filter(
-        (l) => leaves[l].parent < 0 && !groups.some((item) => leafInGroup(nodes, leaves, l, item.node)),
-      ),
+      selection: normalize(nodes, [...kept, ...picked.items]),
+      selectedLeaves: [
+        ...selectedLeaves.filter((l) => !picked.items.some((p) => leafInGroup(nodes, leaves, l, p.node))),
+        ...picked.leaves.filter((l) => !selectedLeaves.includes(l)),
+      ],
     })
-  },
-  levelDown: () => {
-    const { nodes, selection } = get()
-    const next = byAnchor(selection).flatMap((items) => {
-      // An object narrows to the group that was clicked, then to its children towards the click.
-      if (items.length > 1) return [items.find((item) => covers(nodes, item.node, item.anchor)) ?? items[0]]
-      const [item] = items
-      const { children } = nodes[item.node]
-      if (children.length === 0) return items
-      const towardsAnchor = children.find((c) => covers(nodes, c, item.anchor))
-      return [{ ...item, node: towardsAnchor ?? children[0] }]
-    })
-    set({ selection: normalize(nodes, next) })
-  },
-}))
+  }
+
+  return {
+    openSourceId: null,
+    ...EMPTY_SOURCE,
+    open: (id) => {
+      if (get().openSourceId === id) return
+      set({ openSourceId: id, ...EMPTY_SOURCE })
+    },
+    close: () => set({ openSourceId: null, ...EMPTY_SOURCE }),
+    setNodes: (index) =>
+      set({
+        ...index,
+        ...buildObjects(index.nodes, index.leaves, areasOf(index)),
+        hover: null,
+        selection: [],
+        selectedLeaves: [],
+      }),
+    setHover: (hover) => set({ hover }),
+    // What was clicked stays the anchor, so "level down" refines back to it.
+    select: (group, additive) => pick({ group }, group, additive),
+    selectLeaf: (leaf, additive) => {
+      const { leafObject, selectedLeaves } = get()
+      if (leafObject[leaf] >= 0) return pick({ leaf }, -(leaf + 1), additive)
+      if (!additive) return set({ selection: [], selectedLeaves: [leaf] })
+      if (selectedLeaves.includes(leaf)) return get().deselectLeaf(leaf)
+      get().setPicked([...pickedLeaves(get()), leaf])
+    },
+    selectRect: (rect, additive) => {
+      const state = get()
+      const areas = areasOf(state)
+      // Bounds of what a click on the leaf would select.
+      const inside = pickInRect(state.leaves, rect, (leaf) => {
+        if (state.leafObject[leaf] >= 0) return clickedObject(state, { leaf }, areas).box
+        const parent = state.leaves[leaf].parent
+        return parent < 0 ? null : clickedObject(state, { group: parent }, areas).box
+      })
+      get().setPicked(additive ? [...pickedLeaves(state), ...inside] : inside)
+    },
+    deselectLeaf: (leaf) => {
+      const { nodes, leaves, selection, selectedLeaves } = get()
+      if (selectedLeaves.includes(leaf)) return set({ selectedLeaves: selectedLeaves.filter((l) => l !== leaf) })
+      const owner = selection.find((item) => leafInGroup(nodes, leaves, leaf, item.node))
+      if (!owner) return
+      // The group falls apart into the rest of its leaves; complete subgroups come back whole.
+      const rest = collapse(nodes, leaves, groupLeaves(nodes, leaves, owner.node).filter((l) => l !== leaf))
+      set({
+        selection: [
+          ...selection.filter((item) => item !== owner),
+          ...rest.groups.map((node) => ({ node, anchor: node })),
+        ],
+        selectedLeaves: [...selectedLeaves, ...rest.leaves].sort((a, b) => a - b),
+      })
+    },
+    setPicked: (picked) => {
+      const { nodes, leaves, selection } = get()
+      const { groups, leaves: rest } = collapse(nodes, leaves, picked)
+      // Groups that were selected before keep their anchor for "level down".
+      const items = groups.map((node) => selection.find((item) => item.node === node) ?? { node, anchor: node })
+      set({ selection: items, selectedLeaves: rest })
+    },
+    clearSelection: () => set({ selection: [], selectedLeaves: [] }),
+    levelUp: () => {
+      const state = get()
+      const { nodes, leaves, objects, groupObject } = state
+      const next: SelectedItem[] = []
+      const nextLeaves: number[] = []
+      for (const u of selectionUnits(state)) {
+        const anchor = u.items[0]?.anchor ?? -(u.leaves[0] + 1)
+        // A part widens to its whole object first, a whole object to its parent's object; a loose
+        // leaf goes up to its group, leaves right under the root stay.
+        let target: SceneObject | null = null
+        if (!isWhole(state, u)) target = objects[u.object]
+        else if (u.object >= 0 && objects[u.object].parent >= 0) target = objects[groupObject[objects[u.object].parent]]
+        else if (u.object < 0 && leaves[u.leaves[0]]?.parent >= 0) target = objects[groupObject[leaves[u.leaves[0]].parent]]
+        const picked = target ? objectSelection(target, anchor) : { items: u.items, leaves: u.leaves }
+        next.push(...picked.items)
+        nextLeaves.push(...picked.leaves)
+      }
+      const groups = normalize(nodes, next)
+      set({
+        selection: groups,
+        selectedLeaves: [...new Set(nextLeaves)].filter(
+          (l) => !groups.some((item) => leafInGroup(nodes, leaves, l, item.node)),
+        ),
+      })
+    },
+    levelDown: () => {
+      const state = get()
+      const { nodes } = state
+      const next: SelectedItem[] = []
+      const nextLeaves: number[] = []
+      for (const u of selectionUnits(state)) {
+        const anchor = u.items[0]?.anchor
+        if (u.items.length + u.leaves.length > 1) {
+          // An object narrows to what was clicked: the shape, or the member group holding it.
+          const leaf = anchor !== undefined && anchor < 0 ? -anchor - 1 : -1
+          const group = u.items.find((item) => item.anchor >= 0 && covers(nodes, item.node, item.anchor))
+          if (u.leaves.includes(leaf)) nextLeaves.push(leaf)
+          else if (group) next.push(group)
+          else if (u.items.length) next.push(u.items[0])
+          else nextLeaves.push(u.leaves[0])
+          continue
+        }
+        nextLeaves.push(...u.leaves)
+        for (const item of u.items) {
+          const { children } = nodes[item.node]
+          if (children.length === 0) next.push(item)
+          else next.push({ ...item, node: children.find((c) => covers(nodes, c, item.anchor)) ?? children[0] })
+        }
+      }
+      set({ selection: normalize(nodes, next), selectedLeaves: nextLeaves })
+    },
+  }
+})

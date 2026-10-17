@@ -8,6 +8,8 @@ export interface GroupNode {
   /** Number of nested elements (shapes and groups) inside the group. */
   elementCount: number
   groupCount: number
+  /** Position in document order among all groups and leaves; siblings compare by it. */
+  order?: number
   /** Axis-aligned bounds in source viewBox units. */
   x: number
   y: number
@@ -20,6 +22,8 @@ export interface LeafNode {
   /** Index of the nearest selectable group, or -1 if the leaf sits right under the scene root. */
   parent: number
   tag: string
+  /** Position in document order among all groups and leaves. */
+  order?: number
   /** Visible axis-aligned bounds in source viewBox units; a straight line may have zero width. */
   x: number
   y: number
@@ -48,7 +52,7 @@ function findContentRoot(svg: SVGSVGElement): Element {
   }
 }
 
-interface Rect {
+export interface Rect {
   x: number
   y: number
   width: number
@@ -121,6 +125,7 @@ export function collectGroups(svg: SVGSVGElement): {
   elements: SVGGElement[]
   leaves: LeafNode[]
   leafElements: SVGGraphicsElement[]
+  viewBox: Rect
 } {
   // getCTM() maps to the <svg> viewport (CSS pixels); undo the viewBox scaling to get source units.
   const vb = svg.viewBox.baseVal
@@ -131,6 +136,7 @@ export function collectGroups(svg: SVGSVGElement): {
   const elements: SVGGElement[] = []
   const leaves: LeafNode[] = []
   const leafElements: SVGGraphicsElement[] = []
+  let order = 0
   // Returns the visible bounds of the container's content: getBBox() of each shape mapped through
   // getCTM(), cut by its own and inherited clip-paths, since getBBox() of a group ignores clipping.
   const walk = (container: Element, parent: number, depth: number, inheritedClip: Rect): Rect => {
@@ -147,6 +153,7 @@ export function collectGroups(svg: SVGSVGElement): {
           parent,
           children: [],
           depth,
+          order: order++,
           elementCount: el.querySelectorAll('*').length,
           groupCount: el.querySelectorAll('g').length,
           ...EMPTY,
@@ -158,7 +165,7 @@ export function collectGroups(svg: SVGSVGElement): {
       } else {
         const raw = transformRect(el.getBBox(), toRoot.multiply(el.getCTM() ?? new DOMMatrix()))
         const visible = intersectLoose(raw, clip)
-        leaves.push({ parent, tag: el.tagName, ...(visible ?? raw), visible: visible !== null })
+        leaves.push({ parent, tag: el.tagName, order: order++, ...(visible ?? raw), visible: visible !== null })
         leafElements.push(el)
         rect = intersect(raw, clip)
       }
@@ -166,6 +173,7 @@ export function collectGroups(svg: SVGSVGElement): {
     }
     return content
   }
-  walk(findContentRoot(svg), -1, 0, { x: vb.x, y: vb.y, width: vb.width, height: vb.height })
-  return { nodes, elements, leaves, leafElements }
+  const viewBox = { x: vb.x, y: vb.y, width: vb.width, height: vb.height }
+  walk(findContentRoot(svg), -1, 0, viewBox)
+  return { nodes, elements, leaves, leafElements, viewBox }
 }
