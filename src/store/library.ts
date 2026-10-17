@@ -1,5 +1,6 @@
 import { createStore, del, set as idbSet, values } from 'idb-keyval'
 import { create } from 'zustand'
+import { useCanvasStore } from './canvas'
 
 export interface LibraryComponent {
   id: string
@@ -55,5 +56,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   remove: async (id) => {
     await del(id, db)
     set({ components: get().components.filter((c) => c.id !== id) })
+    useCanvasStore.getState().removeComponent(id)
   },
 }))

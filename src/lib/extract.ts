@@ -92,7 +92,7 @@ const presentation = (el: Element, name: string) => styleDeclarations(el).get(na
  * Copies inherited presentation values from the original's ancestors onto the clone, unless the
  * clone sets them itself, so the clone renders the same outside its original tree.
  */
-function bakeInherited(clone: Element, original: Element) {
+export function bakeInherited(clone: Element, original: Element) {
   for (const name of INHERITED) {
     if (presentation(clone, name) !== null) continue
     for (let el = original.parentElement; el; el = el.parentElement) {

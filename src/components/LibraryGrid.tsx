@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { componentSvg } from '../lib/extract'
+import { COMPONENT_DRAG_TYPE, useCanvasStore } from '../store/canvas'
 import { useLibraryStore, type LibraryComponent } from '../store/library'
 import { useSourcesStore } from '../store/sources'
+import { useUiStore } from '../store/ui'
+
+const PencilIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M11.3 2.3a1.4 1.4 0 0 1 2 2L5.5 12.1 2.5 13l.9-3 7.9-7.7Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+  </svg>
+)
+
+const TrashIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5M7 7v4M9 7v4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
 
 function LibraryTile({ component }: { component: LibraryComponent }) {
   const [editing, setEditing] = useState(false)
@@ -18,12 +32,28 @@ function LibraryTile({ component }: { component: LibraryComponent }) {
     else setDraft(component.name)
   }
 
+  const place = () => {
+    useCanvasStore.getState().add(component)
+    useUiStore.getState().setWorkspaceMode('composition')
+  }
+
   return (
-    <li className="library-tile">
-      <img src={src} alt={component.name} draggable={false} />
+    <li
+      className="library-tile"
+      draggable={!editing}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(COMPONENT_DRAG_TYPE, component.id)
+        e.dataTransfer.effectAllowed = 'copy'
+        const img = e.currentTarget.querySelector('img')
+        if (img) e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2)
+      }}
+    >
+      <button className="library-preview" onClick={place} title="Добавить в центр холста или перетащить на холст">
+        <img src={src} alt="" draggable={false} />
+      </button>
       {editing ? (
         <input
-          className="input"
+          className="input library-rename"
           value={draft}
           autoFocus
           maxLength={80}
@@ -44,20 +74,27 @@ function LibraryTile({ component }: { component: LibraryComponent }) {
         </span>
       )}
       <span className="library-source" title={source?.title}>
-        из {component.sourceId.slice(1)} {source?.title ?? ''}
+        {component.sourceId.slice(1)} · {source?.title ?? ''}
       </span>
       <span className="library-actions">
         <button
-          className="link-btn"
+          className="icon-btn"
+          title="Переименовать"
+          aria-label="Переименовать"
           onClick={() => {
             setDraft(component.name)
             setEditing(true)
           }}
         >
-          Переименовать
+          <PencilIcon />
         </button>
-        <button className="link-btn link-danger" onClick={() => void remove(component.id)}>
-          Удалить
+        <button
+          className="icon-btn icon-danger"
+          title="Удалить из библиотеки"
+          aria-label="Удалить"
+          onClick={() => void remove(component.id)}
+        >
+          <TrashIcon />
         </button>
       </span>
     </li>

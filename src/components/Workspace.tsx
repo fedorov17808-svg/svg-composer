@@ -1,37 +1,80 @@
 import { useEffect } from 'react'
+import { useCanvasStore } from '../store/canvas'
 import { useEditorStore } from '../store/editor'
 import { useSourcesStore } from '../store/sources'
+import { useUiStore, type WorkspaceMode } from '../store/ui'
+import { CompositionCanvas } from './CompositionCanvas'
+import { NumberField } from './NumberField'
 import { SourceViewer } from './SourceViewer'
 
+const MODES: { id: WorkspaceMode; label: string }[] = [
+  { id: 'source', label: 'Исходник' },
+  { id: 'composition', label: 'Композиция' },
+]
+
 export function Workspace() {
+  const mode = useUiStore((s) => s.workspaceMode)
   const openSourceId = useEditorStore((s) => s.openSourceId)
   const source = useSourcesStore((s) => s.sources.find((item) => item.id === openSourceId))
 
   return (
     <main className="workspace" aria-label="Рабочая область">
-      {source ? (
-        <>
-          <SourceToolbar title={source.title} />
-          <SourceViewer key={source.id} source={source} />
-        </>
+      <div className="workspace-toolbar">
+        <ModeSwitch />
+        {mode === 'composition' ? <CanvasControls /> : source ? <SourceControls title={source.title} /> : null}
+      </div>
+      {mode === 'composition' ? (
+        <CompositionCanvas />
+      ) : source ? (
+        <SourceViewer key={source.id} source={source} />
       ) : (
-        <>
-          <div className="workspace-toolbar">
-            <span className="workspace-title">Рабочая область</span>
-          </div>
-          <div className="workspace-stage">
-            <p className="empty">
-              Выберите исходник слева, чтобы выделять элементы, или добавьте компоненты из библиотеки на
-              холст.
-            </p>
-          </div>
-        </>
+        <div className="workspace-stage">
+          <p className="empty">Выберите исходник слева, чтобы выделять элементы и сохранять их в библиотеку.</p>
+        </div>
       )}
     </main>
   )
 }
 
-function SourceToolbar({ title }: { title: string }) {
+function ModeSwitch() {
+  const mode = useUiStore((s) => s.workspaceMode)
+  const setMode = useUiStore((s) => s.setWorkspaceMode)
+  return (
+    <div className="segmented" role="tablist" aria-label="Режим рабочей области">
+      {MODES.map((item) => (
+        <button
+          key={item.id}
+          role="tab"
+          aria-selected={mode === item.id}
+          className={mode === item.id ? 'segmented-item segmented-active' : 'segmented-item'}
+          onClick={() => setMode(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function CanvasControls() {
+  const { size, view, setSize, fit } = useCanvasStore()
+  return (
+    <>
+      <span className="canvas-size">
+        <span className="muted">Холст</span>
+        <NumberField label="Ширина" value={size.width} min={16} max={10000} digits={0} onCommit={(width) => setSize({ ...size, width })} />
+        <span className="muted">×</span>
+        <NumberField label="Высота" value={size.height} min={16} max={10000} digits={0} onCommit={(height) => setSize({ ...size, height })} />
+      </span>
+      <span className="workspace-title muted">{Math.round(view.zoom * 100)}%</span>
+      <button className="btn" onClick={fit} title="Показать холст целиком">
+        Вписать
+      </button>
+    </>
+  )
+}
+
+function SourceControls({ title }: { title: string }) {
   const { nodes, selection, close, levelUp, levelDown, clearSelection } = useEditorStore()
   const canGoUp = selection.some((item) => nodes[item.node]?.parent >= 0)
   const canGoDown = selection.some((item) => nodes[item.node]?.children.length > 0)
@@ -50,7 +93,7 @@ function SourceToolbar({ title }: { title: string }) {
   }, [levelUp, levelDown, clearSelection])
 
   return (
-    <div className="workspace-toolbar">
+    <>
       <button className="btn" onClick={close}>
         ← Назад к исходникам
       </button>
@@ -63,6 +106,6 @@ function SourceToolbar({ title }: { title: string }) {
       <span className="workspace-title" title={title}>
         {title}
       </span>
-    </div>
+    </>
   )
 }

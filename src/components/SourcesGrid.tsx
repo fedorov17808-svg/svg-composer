@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useEditorStore } from '../store/editor'
 import { assetUrl, useSourcesStore } from '../store/sources'
+import { useUiStore } from '../store/ui'
 
 export function SourcesGrid() {
   const { status, error, sources, load } = useSourcesStore()
@@ -28,7 +29,10 @@ export function SourcesGrid() {
             className={source.id === openSourceId ? 'source-tile source-tile-active' : 'source-tile'}
             title={source.title}
             aria-pressed={source.id === openSourceId}
-            onClick={() => open(source.id)}
+            onClick={() => {
+              open(source.id)
+              useUiStore.getState().setWorkspaceMode('source')
+            }}
           >
             <img src={assetUrl(source.file)} alt={source.title} loading="lazy" draggable={false} />
             <span className="source-caption">

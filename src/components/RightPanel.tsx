@@ -1,9 +1,12 @@
 import { useState } from 'react'
+import { normalizeAngle } from '../lib/canvas'
 import { extract } from '../lib/extract'
+import { useCanvasStore } from '../store/canvas'
 import { useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
+import { NumberField } from './NumberField'
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('ru-RU')
 
@@ -106,13 +109,64 @@ function AddToLibrary() {
   )
 }
 
+function Layers() {
+  const { objects, selectedId, select } = useCanvasStore()
+  if (objects.length === 0) return <p className="empty">На холсте пока нет объектов.</p>
+  // Topmost first, as in the canvas paint order reversed.
+  return (
+    <ul className="layer-list">
+      {[...objects].reverse().map((obj) => (
+        <li key={obj.id}>
+          <button
+            className={obj.id === selectedId ? 'layer-item layer-active' : 'layer-item'}
+            title={obj.name}
+            onClick={() => select(obj.id)}
+          >
+            {obj.name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function ObjectProperties() {
+  const obj = useCanvasStore((s) => s.objects.find((o) => o.id === s.selectedId))
+  const update = useCanvasStore((s) => s.update)
+  if (!obj) return <p className="empty">Выделите объект, чтобы изменить позицию, масштаб и поворот.</p>
+  return (
+    <div className="prop-grid">
+      <NumberField label="X" value={obj.x} live onCommit={(x) => update(obj.id, { x })} />
+      <NumberField label="Y" value={obj.y} live onCommit={(y) => update(obj.id, { y })} />
+      <NumberField
+        label="Масштаб"
+        suffix="%"
+        value={obj.scale * 100}
+        min={1}
+        max={2000}
+        live
+        onCommit={(percent) => update(obj.id, { scale: percent / 100 })}
+      />
+      <NumberField
+        label="Угол"
+        suffix="°"
+        value={obj.rotation}
+        step={15}
+        live
+        onCommit={(rotation) => update(obj.id, { rotation: normalizeAngle(rotation) })}
+      />
+    </div>
+  )
+}
+
 export function RightPanel() {
+  const isSourceMode = useUiStore((s) => s.workspaceMode === 'source')
   const isSourceOpen = useEditorStore((s) => s.openSourceId !== null)
   const count = useEditorStore((s) => s.selection.length)
 
   return (
     <aside className="panel panel-right" aria-label="Слои и свойства">
-      {isSourceOpen && (
+      {isSourceMode && isSourceOpen && (
         <section className="panel-section">
           <h2 className="panel-heading">Выделение{count > 1 ? ` (${count})` : ''}</h2>
           <SelectionInfo />
@@ -121,11 +175,11 @@ export function RightPanel() {
       )}
       <section className="panel-section">
         <h2 className="panel-heading">Слои</h2>
-        <p className="empty">На холсте пока нет объектов.</p>
+        <Layers />
       </section>
       <section className="panel-section">
         <h2 className="panel-heading">Свойства</h2>
-        <p className="empty">Выделите объект, чтобы изменить позицию, масштаб и поворот.</p>
+        <ObjectProperties />
       </section>
     </aside>
   )
