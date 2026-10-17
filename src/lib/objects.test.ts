@@ -273,3 +273,38 @@ describe('a big container is not the same figure as what lies in its box', () =>
     expect(clickedObject(state, { group: 2 }).groups).toEqual([2])
   })
 })
+
+describe('limbs', () => {
+  it('small details sticking out of a character join it; the walk stops at the first one that does not (s08, s04)', () => {
+    // hand, check mark (big, stops the walk), cell, gopher body, face, foot, piggy bank
+    const hand = g([400, 280, 90, 80])
+    const check = g([0, 0, 200, 150])
+    const cell = g([300, 160, 40, 40])
+    const body = g([100, 40, 320, 490], 11)
+    const face = g([140, 70, 280, 240], 26)
+    const foot = g([280, 500, 80, 90])
+    const piggy = g([250, 390, 290, 200], 24)
+    const ear = g([400, 30, 40, 40])
+    const nodes = [hand, check, cell, body, face, foot, piggy, ear]
+    const index = buildObjects(nodes, [], AREAS)
+    // The ear drawn after the piggy bank is past the walk's stop.
+    expect(index.groupObject[7]).not.toBe(index.groupObject[3])
+    const gopher = index.groupObject[3]
+    // The foot touches the piggy bank, another character: it stays out.
+    expect(index.groupObject[5]).not.toBe(gopher)
+    expect(index.groupObject[2]).toBe(gopher)
+    expect(index.groupObject[1]).not.toBe(gopher)
+    expect(index.groupObject[0]).not.toBe(gopher)
+    expect(index.groupObject[6]).not.toBe(gopher)
+  })
+})
+
+describe('limbs attach', () => {
+  it('a hand drawn right before the body and sticking out of it joins the gopher (s08 right hand)', () => {
+    const hand = g([400, 280, 90, 80])
+    const body = g([100, 40, 320, 490], 11)
+    const face = g([140, 70, 280, 240], 26)
+    const index = buildObjects([hand, body, face], [], AREAS)
+    expect(index.groupObject[0]).toBe(index.groupObject[1])
+  })
+})

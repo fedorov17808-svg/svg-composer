@@ -31,6 +31,9 @@ export const FIGURE_MIN_ELEMENTS = 10
  * head and tail do; a rope crossing a gopher does not). */
 export const OVERLAP_MAX_GROWTH = 1.5
 
+/** A loose detail smaller than this share of a character that touches it is its limb (paws, ears). */
+export const LIMB_MAX_SHARE = 0.15
+
 /** No object, merged or clicked, takes more than this share of the illustration. */
 export const MAX_ILLUSTRATION_SHARE = 0.7
 
@@ -201,6 +204,8 @@ export function buildObjects(nodes: GroupNode[], leaves: LeafNode[], areas: Area
     parts[b] = { box: merged, elementCount: parts[a].elementCount + parts[b].elementCount, members: [...parts[b].members, ...parts[a].members] }
   }
 
+  attachLimbs(siblings, find, join, parts, scene, areas)
+
   const objects: SceneObject[] = []
   const groupObject = nodes.map(() => -1)
   const leafObject = leaves.map(() => -1)
@@ -232,6 +237,62 @@ export function buildObjects(nodes: GroupNode[], leaves: LeafNode[], areas: Area
 }
 
 const box = (b: Box): Box => ({ x: b.x, y: b.y, width: b.width, height: b.height })
+
+/** Whether the boxes overlap or touch (within a hair of the bigger one's size). */
+function touches(a: Box, b: Box) {
+  const eps = Math.max(a.width, a.height, b.width, b.height) * 0.005
+  return a.x <= b.x + b.width + eps && b.x <= a.x + a.width + eps && a.y <= b.y + b.height + eps && b.y <= a.y + a.height + eps
+}
+
+interface Part {
+  box: Box
+  elementCount: number
+  members: number[]
+}
+
+/**
+ * Paws, ears and tufts drawn as separate small details that stick out of the body: walking from a
+ * character's first and last member outwards in drawing order, each detail smaller than 15 % of
+ * the character that touches it and touches no other character joins it. The walk stops at the
+ * first detail too big or not touching — a calendar check mark in front of the cells keeps the cells
+ * off the gopher in s04; a detail that also touches another character is skipped.
+ */
+function attachLimbs(
+  siblings: Map<number, number[]>,
+  find: (i: number) => number,
+  join: number[],
+  parts: Part[],
+  scene: boolean[],
+  areas: Areas,
+) {
+  const figureOf = (i: number) => isFigure({ ...parts[find(i)].box, elementCount: parts[find(i)].elementCount }, areas)
+  for (const list of siblings.values()) {
+    const figures = [...new Set(list.filter(figureOf).map(find))]
+    for (const f of figures) {
+      // A scene (two gophers and a gong) has no limbs.
+      if (parts[f].members.some((i) => scene[i])) continue
+      const positions = list.flatMap((i, k) => (find(i) === f ? [k] : []))
+      for (const [start, step] of [[Math.min(...positions) - 1, -1], [Math.max(...positions) + 1, 1]]) {
+        for (let k = start; k >= 0 && k < list.length; k += step) {
+          const r = find(list[k])
+          if (r === f) continue
+          const limb = parts[r]
+          const character = parts[f]
+          const fits =
+            !figureOf(list[k]) &&
+            area(limb.box) < area(character.box) * LIMB_MAX_SHARE &&
+            touches(limb.box, character.box) &&
+            area(unionBox([limb.box, character.box])) <= areas.illustration * MAX_ILLUSTRATION_SHARE
+          if (!fits) break
+          // A limb-sized detail touching another character is skipped, not a stop (a foot on the piggy bank in s08).
+          if (figures.some((o) => o !== f && touches(limb.box, parts[o].box))) continue
+          join[r] = f
+          parts[f] = { box: unionBox([limb.box, character.box]), elementCount: limb.elementCount + character.elementCount, members: [...character.members, ...limb.members] }
+        }
+      }
+    }
+  }
+}
 
 /** Whether the group holds two separate figure-sized groups at any depth (two gophers, a board). */
 function isScene(nodes: GroupNode[], group: number, areas: Areas) {
