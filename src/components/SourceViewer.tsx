@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Rect } from '../lib/selection'
 import { collectGroups } from '../lib/svgGroups'
-import { meaningfulGroup, useEditorStore } from '../store/editor'
+import { unionRects } from '../lib/extract'
+import { objectMembers } from '../lib/objects'
+import { byAnchor, clickedObject, useEditorStore } from '../store/editor'
 import { assetUrl, type SourceInfo } from '../store/sources'
 
 const STAGE_PADDING = 24
@@ -68,7 +70,7 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   const [markup, setMarkup] = useState<{ file: string; html: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const { nodes, leaves, hover, selection, selectedLeaves, setNodes, setHover } = useEditorStore()
+  const { nodes, owners, leaves, hover, selection, selectedLeaves, setNodes, setHover } = useEditorStore()
 
   useEffect(() => {
     let cancelled = false
@@ -135,7 +137,7 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     if (!press) {
       // Preview what a click would select.
       const clicked = groupAt(e.target)
-      const index = clicked === null ? null : meaningfulGroup(nodes, clicked)
+      const index = clicked === null ? null : owners[clickedObject(nodes, owners, clicked)[0]]
       if (index !== hover) setHover(index)
       return
     }
@@ -168,6 +170,11 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   }
 
   const box = { scale, vbX, vbY }
+  // One frame per click: an object's parts share the anchor.
+  const selectedBoxes = byAnchor(selection).flatMap((items) => {
+    const rects = items.map((item) => nodes[item.node]).filter(Boolean)
+    return rects.length ? [unionRects(rects)] : []
+  })
 
   return (
     <div
@@ -188,10 +195,12 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
         <div className="source-frame" style={{ width, height }}>
           <div ref={hostRef} className="source-host" dangerouslySetInnerHTML={html} />
           <svg className="source-overlay" aria-hidden="true">
-            {selection.map(({ node }) => nodes[node] && <Box key={node} node={nodes[node]} kind="selected" {...box} />)}
+            {selectedBoxes.map((rect, i) => (
+              <Box key={i} node={rect} kind="selected" {...box} />
+            ))}
             {selectedLeaves.map((l) => leaves[l] && <Box key={`l${l}`} node={leaves[l]} kind="selected" {...box} />)}
             {hover !== null && nodes[hover] && !selection.some((item) => item.node === hover) && (
-              <Box node={nodes[hover]} kind="hover" {...box} />
+              <Box node={unionRects(objectMembers(owners, hover).map((n) => nodes[n]))} kind="hover" {...box} />
             )}
             {marquee && <Box node={marquee} kind="marquee" {...box} />}
           </svg>

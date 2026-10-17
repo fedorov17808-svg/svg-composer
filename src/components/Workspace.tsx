@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../store/canvas'
-import { useEditorStore } from '../store/editor'
+import { canLevelDown, canLevelUp, useEditorStore } from '../store/editor'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore, type WorkspaceMode } from '../store/ui'
 import { CanvasToolbar } from './CanvasToolbar'
@@ -82,10 +82,10 @@ function CanvasControls() {
 }
 
 function SourceControls({ title }: { title: string }) {
-  const { nodes, leaves, selection, selectedLeaves, close, levelUp, levelDown, clearSelection } = useEditorStore()
-  const canGoUp =
-    selection.some((item) => nodes[item.node]?.parent >= 0) || selectedLeaves.some((l) => leaves[l]?.parent >= 0)
-  const canGoDown = selection.some((item) => nodes[item.node]?.children.length > 0)
+  const editor = useEditorStore()
+  const { close, levelUp, levelDown, clearSelection } = editor
+  const canGoUp = canLevelUp(editor)
+  const canGoDown = canLevelDown(editor)
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

@@ -63,18 +63,18 @@ describe('pickInRect', () => {
     { ...group(0), x: 120, y: 20, width: 60, height: 90 },
   ]
   const leaves = [leaf(0, 0, 0, 150, 80), leaf(1, 120, 20, 60, 90), leaf(1, 130, 30, 5, 5)]
-  const objectOf = (g: number) => (g === 0 ? 0 : 1)
+  const objectOf = (g: number) => nodes[g === 0 ? 0 : 1]
 
   it('takes the calendar but does not cut the gopher sticking out of the rect apart', () => {
-    expect(pickInRect(nodes, leaves, { x: 0, y: 0, width: 160, height: 85 }, objectOf)).toEqual([0])
+    expect(pickInRect(leaves, { x: 0, y: 0, width: 160, height: 85 }, objectOf)).toEqual([0])
   })
 
   it('picks details within an object bigger than the rect, even if the rect sticks out of it', () => {
-    expect(pickInRect(nodes, leaves, { x: 125, y: 25, width: 20, height: 20 }, objectOf)).toEqual([2])
-    expect(pickInRect(nodes, leaves, { x: 125, y: 15, width: 20, height: 20 }, objectOf)).toEqual([2])
+    expect(pickInRect(leaves, { x: 125, y: 25, width: 20, height: 20 }, objectOf)).toEqual([2])
+    expect(pickInRect(leaves, { x: 125, y: 15, width: 20, height: 20 }, objectOf)).toEqual([2])
   })
 
   it('picks a whole object inside the rect', () => {
-    expect(pickInRect(nodes, leaves, { x: 110, y: 10, width: 80, height: 110 }, objectOf)).toEqual([1, 2])
+    expect(pickInRect(leaves, { x: 110, y: 10, width: 80, height: 110 }, objectOf)).toEqual([1, 2])
   })
 })

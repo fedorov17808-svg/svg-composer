@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { normalizeAngle, type CanvasObject } from '../lib/canvas'
 import { componentSvg, extract, unionRects } from '../lib/extract'
 import { useCanvasStore } from '../store/canvas'
-import { selectedParts, useEditorStore } from '../store/editor'
+import { byAnchor, selectedParts, useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
@@ -14,9 +14,29 @@ const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('ru-RU')
 /** Above this many selected pieces the panel shows a summary instead of one card per piece. */
 const MAX_CARDS = 3
 
+/** "1606,6 × 2423,4 (32 × 48 % иллюстрации)": sources differ in units (viewBox 144, 600, 5000). */
+function SizeText({ width, height }: { width: number; height: number }) {
+  const sourceId = useEditorStore((s) => s.openSourceId)
+  const viewBox = useSourcesStore((s) => s.sources.find((item) => item.id === sourceId)?.viewBox)
+  const [, , vw, vh] = (viewBox ?? '').split(/[\s,]+/).map(Number)
+  return (
+    <>
+      {fmt(width)} × {fmt(height)}
+      {vw > 0 && vh > 0 && (
+        <span className="muted">
+          {' '}
+          ({Math.round((width / vw) * 100)} × {Math.round((height / vh) * 100)} % иллюстрации)
+        </span>
+      )}
+    </>
+  )
+}
+
 function SelectionInfo() {
   const state = useEditorStore()
   const { nodes, leaves, selection, selectedLeaves } = state
+  // One card per click: an object's groups share the anchor.
+  const objects = byAnchor(selection)
 
   if (selection.length === 0 && selectedLeaves.length === 0) {
     return (
@@ -27,7 +47,7 @@ function SelectionInfo() {
     )
   }
 
-  if (selection.length + selectedLeaves.length > MAX_CARDS) {
+  if (objects.length + selectedLeaves.length > MAX_CARDS) {
     const box = unionRects(selectedParts(state).bounds)
     return (
       <div className="selection-item">
@@ -38,7 +58,7 @@ function SelectionInfo() {
           <dd>{selectedLeaves.length}</dd>
           <dt>Размер</dt>
           <dd>
-            {fmt(box.width)} × {fmt(box.height)}
+            <SizeText {...box} />
           </dd>
         </dl>
       </div>
@@ -47,24 +67,38 @@ function SelectionInfo() {
 
   return (
     <ul className="selection-list">
-      {selection.map(({ node: index }) => {
-        const node = nodes[index]
-        if (!node) return null
+      {objects.map((items) => {
+        const groups = items.map((item) => nodes[item.node]).filter(Boolean)
+        if (groups.length === 0) return null
+        const main = groups.reduce((a, b) => (b.width * b.height > a.width * a.height ? b : a))
+        const index = nodes.indexOf(main)
+        const box = unionRects(groups)
+        const numbers = items.map((item) => `№${item.node + 1}`).join(', ')
         return (
-          <li key={index} className="selection-item">
+          <li key={items[0].anchor} className="selection-item">
             <dl className="props">
-              <dt>id</dt>
-              <dd>{node.id ? <code>{node.id}</code> : <span className="muted">— (группа №{index + 1})</span>}</dd>
+              <dt>{groups.length > 1 ? 'Объект' : 'id'}</dt>
+              <dd>
+                {groups.length > 1 ? (
+                  <span title={`группы ${numbers}`}>
+                    {groups.length} групп <span className="muted">({numbers})</span>
+                  </span>
+                ) : main.id ? (
+                  <code>{main.id}</code>
+                ) : (
+                  <span className="muted">— (группа №{index + 1})</span>
+                )}
+              </dd>
               <dt>Размер</dt>
               <dd>
-                {fmt(node.width)} × {fmt(node.height)}
+                <SizeText {...box} />
               </dd>
               <dt>Вложено</dt>
               <dd>
-                {node.elementCount} эл. (групп: {node.groupCount})
+                {groups.reduce((n, g) => n + g.elementCount, 0)} эл. (групп: {groups.reduce((n, g) => n + g.groupCount, 0)})
               </dd>
               <dt>Уровень</dt>
-              <dd>{node.depth + 1}</dd>
+              <dd>{main.depth + 1}</dd>
             </dl>
           </li>
         )
@@ -81,7 +115,7 @@ function SelectionInfo() {
               </dd>
               <dt>Размер</dt>
               <dd>
-                {fmt(leaf.width)} × {fmt(leaf.height)}
+                <SizeText {...leaf} />
               </dd>
             </dl>
           </li>
