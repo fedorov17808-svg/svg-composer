@@ -33,8 +33,12 @@ function LibraryTile({ component }: { component: LibraryComponent }) {
   }
 
   const place = () => {
-    useCanvasStore.getState().add(component)
-    useUiStore.getState().setWorkspaceMode('composition')
+    const { workspaceMode, setWorkspaceMode } = useUiStore.getState()
+    const canvas = useCanvasStore.getState()
+    // A canvas that is not shown yet will open fitted, so its visible center is the page center.
+    if (workspaceMode === 'composition') canvas.add(component)
+    else canvas.add(component, { x: canvas.size.width / 2, y: canvas.size.height / 2 })
+    setWorkspaceMode('composition')
   }
 
   return (

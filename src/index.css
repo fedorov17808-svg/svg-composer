@@ -364,6 +364,25 @@ button {
   filter: brightness(1.08);
 }
 
+.extract-preview {
+  margin: 0;
+}
+
+.extract-preview img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: contain;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: repeating-conic-gradient(#f3f3f6 0 25%, #fff 0 50%) 0 0 / 12px 12px;
+}
+
+.extract-preview figcaption {
+  margin-top: 4px;
+  font-size: 11px;
+}
+
 .error {
   margin: 0;
   color: #c62828;

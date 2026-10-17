@@ -110,6 +110,9 @@ export function CompositionCanvas() {
   useLayoutEffect(() => {
     const el = stageRef.current
     if (!el) return
+    // Opening the composition always shows the whole page; measure now to skip a stale first frame.
+    useCanvasStore.setState({ autoFit: true })
+    setStage({ width: el.clientWidth, height: el.clientHeight })
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect
       setStage({ width, height })

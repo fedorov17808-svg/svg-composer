@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { collectGroups, type GroupNode } from '../lib/svgGroups'
-import { useEditorStore } from '../store/editor'
+import { meaningfulGroup, useEditorStore } from '../store/editor'
 import { assetUrl, type SourceInfo } from '../store/sources'
 
 const STAGE_PADDING = 24
@@ -109,7 +109,9 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
             className="source-host"
             dangerouslySetInnerHTML={html}
             onPointerMove={(e) => {
-              const index = groupAt(e.target)
+              // Preview what a click would select.
+              const clicked = groupAt(e.target)
+              const index = clicked === null ? null : meaningfulGroup(nodes, clicked)
               if (index !== hover) setHover(index)
             }}
             onPointerLeave={() => setHover(null)}

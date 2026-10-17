@@ -24,6 +24,27 @@ interface EditorState {
   levelDown: () => void
 }
 
+/** A click picks the smallest ancestor covering at least this share of the scene's area. */
+const MIN_AREA_SHARE = 0.1
+
+/** Area of the union of top-level groups: the drawing itself, without empty margins. */
+function sceneArea(nodes: GroupNode[]) {
+  const top = nodes.filter((n) => n.parent < 0 && n.width > 0 && n.height > 0)
+  if (top.length === 0) return 0
+  const x = Math.min(...top.map((n) => n.x))
+  const y = Math.min(...top.map((n) => n.y))
+  const right = Math.max(...top.map((n) => n.x + n.width))
+  const bottom = Math.max(...top.map((n) => n.y + n.height))
+  return (right - x) * (bottom - y)
+}
+
+/** Walks up from the clicked group to a meaningful object: big enough or directly under the root. */
+export function meaningfulGroup(nodes: GroupNode[], node: number, area = sceneArea(nodes)) {
+  let n = node
+  while (nodes[n].parent >= 0 && nodes[n].width * nodes[n].height < area * MIN_AREA_SHARE) n = nodes[n].parent
+  return n
+}
+
 const isAncestor = (nodes: GroupNode[], ancestor: number, node: number) => {
   for (let n = nodes[node].parent; n >= 0; n = nodes[n].parent) if (n === ancestor) return true
   return false
@@ -50,14 +71,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   close: () => set({ openSourceId: null, nodes: [], elements: [], hover: null, selection: [] }),
   setNodes: (nodes, elements) => set({ nodes, elements, hover: null, selection: [] }),
   setHover: (hover) => set({ hover }),
-  select: (node, additive) => {
+  select: (clicked, additive) => {
     const { nodes, selection } = get()
-    if (!additive) return set({ selection: [{ node, anchor: node }] })
+    // The clicked group stays the anchor, so "level down" refines back to it.
+    const node = meaningfulGroup(nodes, clicked)
+    if (!additive) return set({ selection: [{ node, anchor: clicked }] })
     // Shift+click inside an already selected group removes that group.
-    const covering = (item: SelectedItem) => item.node === node || isAncestor(nodes, item.node, node)
+    const covering = (item: SelectedItem) => item.node === clicked || isAncestor(nodes, item.node, clicked)
     if (selection.some(covering)) return set({ selection: selection.filter((item) => !covering(item)) })
     const kept = selection.filter((item) => !isAncestor(nodes, node, item.node))
-    set({ selection: [...kept, { node, anchor: node }] })
+    set({ selection: [...kept, { node, anchor: clicked }] })
   },
   clearSelection: () => set({ selection: [] }),
   levelUp: () => {

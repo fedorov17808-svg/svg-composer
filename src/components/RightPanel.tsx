@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { normalizeAngle } from '../lib/canvas'
-import { extract } from '../lib/extract'
+import { componentSvg, extract } from '../lib/extract'
 import { useCanvasStore } from '../store/canvas'
 import { useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
@@ -51,6 +51,33 @@ function SelectionInfo() {
 }
 
 const newId = () => 'c' + Math.random().toString(36).slice(2, 8)
+
+/** Exactly what "Add to library" will store: shows partial picks and clip-path cut-offs. */
+function ExtractPreview() {
+  const { nodes, elements, selection } = useEditorStore()
+  const preview = useMemo(() => {
+    try {
+      const result = extract({
+        elements: selection.map((item) => elements[item.node]),
+        bounds: selection.map((item) => nodes[item.node]),
+        prefix: 'preview-',
+      })
+      return { ...result, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(componentSvg(result))}` }
+    } catch {
+      return null
+    }
+  }, [nodes, elements, selection])
+
+  if (!preview) return null
+  return (
+    <figure className="extract-preview">
+      <img src={preview.src} alt="Что будет сохранено" draggable={false} />
+      <figcaption className="muted">
+        Будет сохранено · {fmt(preview.width)} × {fmt(preview.height)}
+      </figcaption>
+    </figure>
+  )
+}
 
 function AddToLibrary() {
   const [name, setName] = useState('')
@@ -105,6 +132,7 @@ function AddToLibrary() {
         Добавить в библиотеку
       </button>
       {error && <p className="error">Не удалось извлечь: {error}</p>}
+      <ExtractPreview />
     </form>
   )
 }

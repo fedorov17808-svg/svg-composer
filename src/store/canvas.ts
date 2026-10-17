@@ -23,6 +23,7 @@ interface CanvasState {
   view: View
   /** The view follows the stage size until the user zooms or pans. */
   autoFit: boolean
+  /** Places a component at `at` (canvas units) or in the center of the visible area. */
   add: (component: LibraryComponent, at?: Point) => void
   update: (id: string, patch: Partial<CanvasObject>) => void
   select: (id: string | null) => void
@@ -43,6 +44,17 @@ const fitView = (size: Size, stage: Size): View => {
   return { zoom, x: (stage.width - size.width * zoom) / 2, y: (stage.height - size.height * zoom) / 2 }
 }
 
+/** A new object's longer side, as a share of the canvas height. */
+const NEW_OBJECT_SHARE = 0.35
+
+/** Center of the visible part of the page, in canvas units. */
+function visibleCenter({ size, stage, view }: Pick<CanvasState, 'size' | 'stage' | 'view'>): Point {
+  if (stage.width <= 0 || stage.height <= 0) return { x: size.width / 2, y: size.height / 2 }
+  const x = (stage.width / 2 - view.x) / view.zoom
+  const y = (stage.height / 2 - view.y) / view.zoom
+  return { x: Math.min(size.width, Math.max(0, x)), y: Math.min(size.height, Math.max(0, y)) }
+}
+
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   size: { width: 1200, height: 800 },
   objects: [],
@@ -52,9 +64,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   autoFit: true,
   add: (component, at) => {
     const { size, objects } = get()
-    // Components keep source units; shrink only those that would not fit comfortably.
-    const scale = Math.min(1, (size.width * 0.6) / component.width, (size.height * 0.6) / component.height)
-    const center = at ?? { x: size.width / 2, y: size.height / 2 }
+    // Same visual size for every component, whatever its size in the source.
+    const scale = (size.height * NEW_OBJECT_SHARE) / Math.max(component.width, component.height)
+    const center = at ?? visibleCenter(get())
     const obj: CanvasObject = {
       id: newId(),
       componentId: component.id,
