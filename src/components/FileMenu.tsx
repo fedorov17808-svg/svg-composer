@@ -3,7 +3,11 @@ import { exportFileName, exportSvg } from '../lib/exportSvg'
 import { createProject, parseProject, ProjectError, serializeProject } from '../lib/project'
 import { useCanvasStore } from '../store/canvas'
 import { useLibraryStore } from '../store/library'
+import { assetUrl } from '../store/sources'
 import { useUiStore } from '../store/ui'
+import { Dialog } from './Dialog'
+import { HelpDialog } from './HelpDialog'
+import { Menu, type MenuEntry } from './Menu'
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform)
 const PNG_SCALE = 2
@@ -61,10 +65,18 @@ async function downloadPng() {
   }
 }
 
-/** Project and export actions in the header; ⌘E downloads the SVG from anywhere. */
+interface Example {
+  id: string
+  title: string
+  file: string
+}
+
+/** Project and export menus and help in the header; ⌘E downloads the SVG from anywhere. */
 export function FileMenu() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
+  const [examples, setExamples] = useState<Example[]>([])
+  const [dialog, setDialog] = useState<'help' | 'reset' | null>(null)
   const visible = useCanvasStore((s) => s.objects.some((o) => !o.hidden))
 
   useEffect(() => {
@@ -77,23 +89,48 @@ export function FileMenu() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  useEffect(() => {
+    fetch(assetUrl('examples/index.json'))
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setExamples)
+      .catch(() => setExamples([]))
+  }, [])
+
   const saveProject = () => {
     const { size, objects } = useCanvasStore.getState()
     const project = createProject(size, objects, useLibraryStore.getState().components)
     download(new Blob([serializeProject(project)], { type: 'application/json' }), exportFileName('json', new Date(), 'project'))
   }
 
-  const openProject = async (file: File) => {
+  const openProject = async (kind: 'Проект' | 'Пример', name: string, text: () => Promise<string>) => {
     setError(null)
     try {
-      const project = parseProject(await file.text())
+      const project = parseProject(await text())
       await useLibraryStore.getState().addMissing(project.components)
       useCanvasStore.getState().replace(project.canvas, project.objects)
       useUiStore.getState().setWorkspaceMode('composition')
-      useUiStore.getState().showToast(`Проект «${file.name}» открыт`)
+      useUiStore.getState().showToast(`${kind} «${name}» открыт`)
     } catch (err) {
       const reason = err instanceof ProjectError ? err.message : `Ошибка: ${err instanceof Error ? err.message : String(err)}`
-      setError(`Не удалось открыть «${file.name}». ${reason}`)
+      setError(`Не удалось открыть «${name}». ${reason}`)
+    }
+  }
+
+  const openExample = (example: Example) =>
+    openProject('Пример', example.title, async () => {
+      const res = await fetch(assetUrl(example.file))
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.text()
+    })
+
+  const resetToDemo = async () => {
+    setDialog(null)
+    try {
+      await useLibraryStore.getState().resetToDemo()
+      useUiStore.getState().setLeftTab('library')
+      useUiStore.getState().showToast('Библиотека сброшена к демо-набору')
+    } catch (err) {
+      setError(`Не удалось сбросить библиотеку: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -105,25 +142,28 @@ export function FileMenu() {
     }
   }
 
+  const projectEntries: MenuEntry[] = [
+    { label: 'Открыть проект…', onSelect: () => inputRef.current?.click() },
+    { label: 'Сохранить проект', onSelect: saveProject },
+    ...(examples.length ? ['Примеры', ...examples.map((ex) => ({ label: ex.title, onSelect: () => void openExample(ex) }))] : []),
+    'Библиотека',
+    { label: 'Сбросить к демо…', onSelect: () => setDialog('reset') },
+  ]
+
   return (
     <div className="file-menu">
-      <button className="btn" onClick={() => inputRef.current?.click()} title="Открыть проект из файла .json">
-        Открыть проект
-      </button>
-      <button className="btn" onClick={saveProject} title="Холст, объекты и их компоненты в одном файле .json">
-        Сохранить проект
-      </button>
-      <span className="toolbar-divider" />
-      <button className="btn" onClick={png} disabled={!visible} title="Растр из того же SVG, 2×">
-        Скачать PNG
-      </button>
-      <button
-        className="btn btn-primary"
-        onClick={downloadSvg}
-        disabled={!visible}
-        title={`Скачать SVG (${IS_MAC ? '⌘E' : 'Ctrl+E'})`}
-      >
-        Скачать SVG
+      <Menu label="Проект" entries={projectEntries} title="Открыть, сохранить, примеры" />
+      <Menu
+        label="Экспорт"
+        primary
+        title={visible ? 'Скачать композицию' : 'На холсте нет видимых объектов'}
+        entries={[
+          { label: 'SVG', hint: IS_MAC ? '⌘E' : 'Ctrl+E', onSelect: downloadSvg, disabled: !visible },
+          { label: 'PNG (2×)', onSelect: () => void png(), disabled: !visible },
+        ]}
+      />
+      <button className="btn btn-icon" onClick={() => setDialog('help')} title="Как пользоваться" aria-label="Справка">
+        ?
       </button>
       <input
         ref={inputRef}
@@ -134,7 +174,7 @@ export function FileMenu() {
         onChange={(e) => {
           const file = e.target.files?.[0]
           e.target.value = ''
-          if (file) void openProject(file)
+          if (file) void openProject('Проект', file.name, () => file.text())
         }}
       />
       {error && (
@@ -144,6 +184,27 @@ export function FileMenu() {
             ×
           </button>
         </div>
+      )}
+      {dialog === 'help' && <HelpDialog onClose={() => setDialog(null)} />}
+      {dialog === 'reset' && (
+        <Dialog
+          title="Сбросить библиотеку?"
+          onClose={() => setDialog(null)}
+          actions={
+            <>
+              <button className="btn" onClick={() => setDialog(null)} autoFocus>
+                Отмена
+              </button>
+              <button className="btn btn-danger" onClick={() => void resetToDemo()}>
+                Сбросить
+              </button>
+            </>
+          }
+        >
+          <p className="dialog-text">
+            Все компоненты библиотеки заменятся демо-набором. Объекты холста из удалённых компонентов тоже исчезнут.
+          </p>
+        </Dialog>
       )}
     </div>
   )

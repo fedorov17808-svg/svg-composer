@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { normalizeAngle, type CanvasObject } from '../lib/canvas'
 import { componentSvg, extract, unionRects } from '../lib/extract'
+import { defaultName } from '../lib/names'
 import { useCanvasStore } from '../store/canvas'
 import { selectedParts, selectionUnits, useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
@@ -41,8 +42,8 @@ function SelectionInfo() {
   if (selection.length === 0 && selectedLeaves.length === 0) {
     return (
       <p className="empty">
-        Щёлкните по элементу или протяните рамку с пустого места (или с Alt) — выделятся детали целиком
-        внутри неё. Shift — добавить, Alt+Shift+клик — убрать деталь, ↑/↓ — уровень, Esc — снять.
+        Ничего не выделено. Щёлкните по персонажу или предмету на картинке; рамкой — несколько деталей,
+        Shift — добавить.
       </p>
     )
   }
@@ -170,7 +171,8 @@ function AddToLibrary() {
   const [busy, setBusy] = useState(false)
   const sourceId = useEditorStore((s) => s.openSourceId)
   const sourceTitle = useSourcesStore((s) => s.sources.find((item) => item.id === sourceId)?.title)
-  const placeholder = `Элемент из «${sourceTitle ?? sourceId}»`
+  const names = useLibraryStore((s) => s.components.map((c) => c.name).join('\n'))
+  const placeholder = defaultName(sourceId ?? '', sourceTitle, names.split('\n'))
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -221,7 +223,7 @@ function AddToLibrary() {
 function ObjectProperties() {
   const obj = useCanvasStore((s) => s.objects.find((o) => o.id === s.selectedId))
   const update = useCanvasStore((s) => s.update)
-  if (!obj) return <p className="empty">Выделите объект, чтобы изменить позицию, масштаб и поворот.</p>
+  if (!obj) return <p className="empty">Ничего не выделено. Щёлкните по объекту на холсте.</p>
   // Typing into one field makes one undo step, not one per keystroke.
   const edit = (field: string, patch: Partial<CanvasObject>) => update(obj.id, patch, `${field}:${obj.id}`)
   const locked = obj.locked === true

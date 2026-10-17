@@ -1,6 +1,7 @@
-import { createStore, del, set as idbSet, setMany, values } from 'idb-keyval'
+import { clear, createStore, del, set as idbSet, setMany, values } from 'idb-keyval'
 import { create } from 'zustand'
 import { useCanvasStore } from './canvas'
+import { assetUrl } from './sources'
 
 export interface LibraryComponent {
   id: string
@@ -16,6 +17,15 @@ export interface LibraryComponent {
 }
 
 const db = createStore('svg-composer', 'library')
+/** Set once the demo components have been offered, so a library emptied on purpose stays empty. */
+const SEEDED_KEY = 'svg-composer-seeded'
+
+/** Demo components built by `npm run seed` from the sources. */
+async function fetchSeed(): Promise<LibraryComponent[]> {
+  const res = await fetch(assetUrl('seed-library.json'))
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return (await res.json()) as LibraryComponent[]
+}
 
 interface LibraryState {
   status: 'idle' | 'loading' | 'ready' | 'error'
@@ -27,6 +37,8 @@ interface LibraryState {
   addMissing: (components: LibraryComponent[]) => Promise<void>
   rename: (id: string, name: string) => Promise<void>
   remove: (id: string) => Promise<void>
+  /** Replaces the library with the demo components; canvas objects of removed components go too. */
+  resetToDemo: () => Promise<void>
 }
 
 /** The one load in flight or done; callers that need the library wait for it. */
@@ -40,7 +52,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     (loading ??= (async () => {
       set({ status: 'loading', error: null })
       try {
-        const components = await values<LibraryComponent>(db)
+        let components = await values<LibraryComponent>(db)
+        if (components.length === 0 && !localStorage.getItem(SEEDED_KEY)) {
+          try {
+            components = await fetchSeed()
+            await setMany(components.map((c) => [c.id, c]), db)
+          } catch (err) {
+            console.warn('Демо-библиотека: не удалось загрузить', err)
+          }
+        }
+        localStorage.setItem(SEEDED_KEY, '1')
         components.sort((a, b) => a.createdAt - b.createdAt)
         set({ status: 'ready', components })
       } catch (err) {
@@ -71,5 +92,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     await del(id, db)
     set({ components: get().components.filter((c) => c.id !== id) })
     useCanvasStore.getState().removeComponent(id)
+  },
+  resetToDemo: async () => {
+    const seed = await fetchSeed()
+    await clear(db)
+    await setMany(seed.map((c) => [c.id, c]), db)
+    const keep = new Set(seed.map((c) => c.id))
+    const removed = get().components.filter((c) => !keep.has(c.id))
+    set({ components: seed })
+    for (const c of removed) useCanvasStore.getState().removeComponent(c.id)
   },
 }))

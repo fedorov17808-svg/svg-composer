@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { diff, openSource } from './render'
+import { diff, openSource, skipDemo } from './render'
+
+test.beforeEach(skipDemo)
 
 /**
  * Stage 7: a scene from three sources is downloaded as SVG; the file is rendered on its own and
@@ -37,6 +39,12 @@ const canvasState = (page: Page) =>
     const { objects, size } = useCanvasStore.getState()
     return { objects: objects as Obj[], size }
   })
+
+/** Picks an item from a header menu. */
+async function menu(page: Page, button: string, item: string) {
+  await page.getByRole('button', { name: button }).click()
+  await page.getByRole('menuitem', { name: item }).click()
+}
 
 async function downloadText(page: Page, action: () => Promise<void>) {
   const [download] = await Promise.all([page.waitForEvent('download'), action()])
@@ -83,7 +91,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   expect(scene.objects.filter((o) => !o.hidden)).toHaveLength(3)
 
   // The button and ⌘E give the same file.
-  const svg = await downloadText(page, () => page.getByRole('button', { name: 'Скачать SVG' }).click())
+  const svg = await downloadText(page, () => menu(page, 'Экспорт', 'SVG'))
   expect(svg.name).toMatch(/^composition-\d{4}-\d{2}-\d{2}\.svg$/)
   await page.locator('.canvas-stage').click({ position: { x: 5, y: 5 } })
   const viaKey = await downloadText(page, () => page.keyboard.press('ControlOrMeta+KeyE'))
@@ -174,7 +182,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   expect(different / painted, `различие ${((different / painted) * 100).toFixed(2)} %`).toBeLessThan(TOLERANCE)
 
   // PNG from the same SVG, at 2×.
-  const [pngDownload] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Скачать PNG' }).click()])
+  const [pngDownload] = await Promise.all([page.waitForEvent('download'), menu(page, 'Экспорт', 'PNG (2×)')])
   expect(pngDownload.suggestedFilename()).toMatch(/^composition-\d{4}-\d{2}-\d{2}\.png$/)
   const png = readFileSync((await pngDownload.path())!)
   expect(png.subarray(1, 4).toString()).toBe('PNG')
@@ -188,7 +196,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   expect(await canvasState(page)).toEqual(scene)
 
   // Project file, opened into an empty library as on another computer.
-  const project = await downloadText(page, () => page.getByRole('button', { name: 'Сохранить проект' }).click())
+  const project = await downloadText(page, () => menu(page, 'Проект', 'Сохранить проект'))
   expect(project.name).toMatch(/^project-\d{4}-\d{2}-\d{2}\.json$/)
   expect(JSON.parse(project.text).components).toHaveLength(3)
   await page.evaluate(async () => {
@@ -202,7 +210,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   await expect(tiles).toHaveCount(3)
   await expect(page.locator('.canvas-svg [data-object-id]')).toHaveCount(3)
   expect(await canvasState(page)).toEqual(scene)
-  const reopened = await downloadText(page, () => page.getByRole('button', { name: 'Скачать SVG' }).click())
+  const reopened = await downloadText(page, () => menu(page, 'Экспорт', 'SVG'))
   expect(reopened.text).toBe(svg.text)
 
   // A broken file leaves the composition alone and says why.

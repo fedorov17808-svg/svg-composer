@@ -51,12 +51,23 @@ button {
 
 .app-title {
   margin: 0;
+  white-space: nowrap;
   font-size: 16px;
   font-weight: 600;
 }
 
 .app-subtitle {
+  min-width: 0;
+  overflow: hidden;
   color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 1180px) {
+  .app-subtitle {
+    display: none;
+  }
 }
 
 .file-menu {
@@ -241,7 +252,9 @@ button {
 
 .btn {
   flex: none;
-  padding: 4px 10px;
+  height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: #fff;
@@ -405,6 +418,12 @@ button {
   font: inherit;
 }
 
+/* One focus ring for every control, shown for keyboard focus only. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .input:focus {
   outline: none;
   border-color: var(--accent);
@@ -420,6 +439,23 @@ button {
 .btn-primary:hover:not(:disabled) {
   color: #fff;
   filter: brightness(1.08);
+}
+
+.btn-danger {
+  background: #c62828;
+  border-color: #c62828;
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.btn-icon {
+  width: 28px;
+  padding: 0;
+  font-weight: 600;
 }
 
 .btn-primary:disabled {
@@ -618,13 +654,24 @@ button {
 
 .canvas-hint {
   position: absolute;
-  bottom: 16px;
+  top: 50%;
   left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   margin: 0;
-  transform: translateX(-50%);
-  color: var(--muted);
-  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
   pointer-events: none;
+}
+
+.canvas-hint .muted {
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .frame-box {
@@ -640,8 +687,17 @@ button {
   pointer-events: all;
 }
 
+/* A circular arrow; `grab` where custom cursors are not supported. */
 .frame-rotate {
-  cursor: grab;
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 12a6 6 0 1 1-2.2-4.6M16 3.5v4h-4' stroke='%23fff' stroke-width='4'/%3E%3Cpath d='M18 12a6 6 0 1 1-2.2-4.6M16 3.5v4h-4' stroke='%23000' stroke-width='1.8'/%3E%3C/g%3E%3C/svg%3E")
+      12 12,
+    grab;
+}
+
+/* Objects on the canvas are dragged to move them. */
+.canvas-svg [data-object-id] {
+  cursor: move;
 }
 
 .number-field {
@@ -819,8 +875,8 @@ button {
 .tool-btn {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -855,4 +911,163 @@ button {
   color: #fff;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   pointer-events: none;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu-caret {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.menu-section {
+  padding: 8px 8px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 5px;
+  background: none;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  outline: none;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.menu-item:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: default;
+}
+
+.menu-hint {
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.dialog::backdrop {
+  background: rgba(29, 29, 34, 0.35);
+}
+
+.dialog-body {
+  padding: 16px 20px 20px;
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dialog-text {
+  margin: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.help-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.help-note {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+.help-heading {
+  margin: 18px 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.help-keys {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.help-key {
+  display: flex;
+  flex-direction: column;
+}
+
+.help-key dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.help-key kbd {
+  font: inherit;
+  font-weight: 600;
 }

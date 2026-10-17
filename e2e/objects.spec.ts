@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { openSource } from './render'
+import { openSource, skipDemo } from './render'
+
+test.beforeEach(skipDemo)
 
 /**
  * Logical objects on all 20 sources: a real click in the middle of every large object selects the

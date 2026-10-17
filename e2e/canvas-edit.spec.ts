@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
+import { skipDemo } from './render'
+
+test.beforeEach(skipDemo)
 
 /**
  * Stage 6: editing the composition with the real mouse and keyboard — duplicate, delete, flip,

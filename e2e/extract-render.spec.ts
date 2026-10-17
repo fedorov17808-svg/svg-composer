@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import { expectSameRender, extractSelection, openSource } from './render'
+import { expectSameRender, extractSelection, openSource, skipDemo } from './render'
+
+test.beforeEach(skipDemo)
 
 interface Case {
   source: string

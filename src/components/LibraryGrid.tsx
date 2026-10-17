@@ -108,6 +108,7 @@ function LibraryTile({ component }: { component: LibraryComponent }) {
 export function LibraryGrid() {
   const { status, error, components, load } = useLibraryStore()
   const loadSources = useSourcesStore((s) => s.load)
+  const setLeftTab = useUiStore((s) => s.setLeftTab)
 
   useEffect(() => {
     void load()
@@ -118,9 +119,12 @@ export function LibraryGrid() {
   if (status !== 'ready') return <p className="empty">Загрузка библиотеки…</p>
   if (components.length === 0) {
     return (
-      <p className="empty">
-        Библиотека пуста. Откройте исходник, выделите элемент и сохраните его как компонент.
-      </p>
+      <div className="empty-state">
+        <p className="empty">Библиотека пуста. Откройте исходник и кликните по элементу.</p>
+        <button className="btn" onClick={() => setLeftTab('sources')}>
+          К исходникам
+        </button>
+      </div>
     )
   }
 

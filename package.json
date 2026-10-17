@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "prepare-svg": "node scripts/prepare-svg.mjs",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",

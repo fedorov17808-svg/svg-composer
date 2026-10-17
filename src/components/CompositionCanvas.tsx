@@ -368,7 +368,10 @@ export function CompositionCanvas() {
         </svg>
       )}
       {objects.length === 0 && (
-        <p className="canvas-hint">Перетащите компонент из библиотеки на холст или щёлкните по нему.</p>
+        <p className="canvas-hint">
+          Перетащите компоненты из библиотеки
+          <span className="muted">или щёлкните по карточке — она встанет в центр</span>
+        </p>
       )}
     </div>
   )

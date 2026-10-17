@@ -1,0 +1,17 @@
+[
+  {
+    "id": "holiday",
+    "title": "Гоферы на празднике",
+    "file": "examples/holiday.json"
+  },
+  {
+    "id": "work",
+    "title": "Гоферы за работой",
+    "file": "examples/work.json"
+  },
+  {
+    "id": "garden",
+    "title": "Восточный сад",
+    "file": "examples/garden.json"
+  }
+]

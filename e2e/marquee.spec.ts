@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import { expectSameRender, extractSelection, openSource } from './render'
+import { expectSameRender, extractSelection, openSource, skipDemo } from './render'
+
+test.beforeEach(skipDemo)
 
 /**
  * Marquee selection in sources whose objects are not grouped: the rect is dragged with the real
