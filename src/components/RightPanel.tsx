@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { normalizeAngle } from '../lib/canvas'
-import { componentSvg, extract } from '../lib/extract'
+import { componentSvg, extract, unionRects } from '../lib/extract'
 import { useCanvasStore } from '../store/canvas'
-import { useEditorStore } from '../store/editor'
+import { selectedParts, useEditorStore } from '../store/editor'
 import { useLibraryStore } from '../store/library'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
@@ -10,15 +10,37 @@ import { NumberField } from './NumberField'
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('ru-RU')
 
-function SelectionInfo() {
-  const { nodes, selection } = useEditorStore()
+/** Above this many selected pieces the panel shows a summary instead of one card per piece. */
+const MAX_CARDS = 3
 
-  if (selection.length === 0) {
+function SelectionInfo() {
+  const state = useEditorStore()
+  const { nodes, leaves, selection, selectedLeaves } = state
+
+  if (selection.length === 0 && selectedLeaves.length === 0) {
     return (
       <p className="empty">
-        Наведите курсор на иллюстрацию и щёлкните по элементу. Shift+клик — добавить ещё, ↑/↓ — уровень
-        выше/ниже, Esc — снять выделение.
+        Щёлкните по элементу или протяните рамку с пустого места (или с Alt) — выделятся детали целиком
+        внутри неё. Shift — добавить, Alt+Shift+клик — убрать деталь, ↑/↓ — уровень, Esc — снять.
       </p>
+    )
+  }
+
+  if (selection.length + selectedLeaves.length > MAX_CARDS) {
+    const box = unionRects(selectedParts(state).bounds)
+    return (
+      <div className="selection-item">
+        <dl className="props">
+          <dt>Групп</dt>
+          <dd>{selection.length}</dd>
+          <dt>Деталей</dt>
+          <dd>{selectedLeaves.length}</dd>
+          <dt>Размер</dt>
+          <dd>
+            {fmt(box.width)} × {fmt(box.height)}
+          </dd>
+        </dl>
+      </div>
     )
   }
 
@@ -46,6 +68,24 @@ function SelectionInfo() {
           </li>
         )
       })}
+      {selectedLeaves.map((index) => {
+        const leaf = leaves[index]
+        if (!leaf) return null
+        return (
+          <li key={`l${index}`} className="selection-item">
+            <dl className="props">
+              <dt>Деталь</dt>
+              <dd>
+                <code>{leaf.tag}</code> <span className="muted">№{index + 1}</span>
+              </dd>
+              <dt>Размер</dt>
+              <dd>
+                {fmt(leaf.width)} × {fmt(leaf.height)}
+              </dd>
+            </dl>
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -54,19 +94,19 @@ const newId = () => 'c' + Math.random().toString(36).slice(2, 8)
 
 /** Exactly what "Add to library" will store: shows partial picks and clip-path cut-offs. */
 function ExtractPreview() {
-  const { nodes, elements, selection } = useEditorStore()
+  const { nodes, elements, leaves, leafElements, selection, selectedLeaves } = useEditorStore()
+  const parts = useMemo(
+    () => selectedParts({ nodes, elements, leaves, leafElements, selection, selectedLeaves }),
+    [nodes, elements, leaves, leafElements, selection, selectedLeaves],
+  )
   const preview = useMemo(() => {
     try {
-      const result = extract({
-        elements: selection.map((item) => elements[item.node]),
-        bounds: selection.map((item) => nodes[item.node]),
-        prefix: 'preview-',
-      })
+      const result = extract({ ...parts, prefix: 'preview-' })
       return { ...result, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(componentSvg(result))}` }
     } catch {
       return null
     }
-  }, [nodes, elements, selection])
+  }, [parts])
 
   if (!preview) return null
   return (
@@ -89,17 +129,13 @@ function AddToLibrary() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { nodes, elements, selection } = useEditorStore.getState()
-    if (!sourceId || selection.length === 0) return
+    const parts = selectedParts(useEditorStore.getState())
+    if (!sourceId || parts.elements.length === 0) return
     const id = newId()
     setBusy(true)
     setError(null)
     try {
-      const result = extract({
-        elements: selection.map((item) => elements[item.node]),
-        bounds: selection.map((item) => nodes[item.node]),
-        prefix: `${id}-`,
-      })
+      const result = extract({ ...parts, prefix: `${id}-` })
       await useLibraryStore.getState().add({
         id,
         name: name.trim() || placeholder,
@@ -190,7 +226,7 @@ function ObjectProperties() {
 export function RightPanel() {
   const isSourceMode = useUiStore((s) => s.workspaceMode === 'source')
   const isSourceOpen = useEditorStore((s) => s.openSourceId !== null)
-  const count = useEditorStore((s) => s.selection.length)
+  const count = useEditorStore((s) => s.selection.length + s.selectedLeaves.length)
 
   return (
     <aside className="panel panel-right" aria-label="Слои и свойства">

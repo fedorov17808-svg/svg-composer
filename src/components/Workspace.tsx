@@ -23,6 +23,11 @@ export function Workspace() {
         <ModeSwitch />
         {mode === 'composition' ? <CanvasControls /> : source ? <SourceControls title={source.title} /> : null}
       </div>
+      {mode === 'source' && source && (
+        <div className="workspace-hint">
+          Клик — объект · Протяни рамку — несколько деталей · ↑/↓ — уровень
+        </div>
+      )}
       {mode === 'composition' ? (
         <CompositionCanvas />
       ) : source ? (
@@ -75,8 +80,9 @@ function CanvasControls() {
 }
 
 function SourceControls({ title }: { title: string }) {
-  const { nodes, selection, close, levelUp, levelDown, clearSelection } = useEditorStore()
-  const canGoUp = selection.some((item) => nodes[item.node]?.parent >= 0)
+  const { nodes, leaves, selection, selectedLeaves, close, levelUp, levelDown, clearSelection } = useEditorStore()
+  const canGoUp =
+    selection.some((item) => nodes[item.node]?.parent >= 0) || selectedLeaves.some((l) => leaves[l]?.parent >= 0)
   const canGoDown = selection.some((item) => nodes[item.node]?.children.length > 0)
 
   useEffect(() => {

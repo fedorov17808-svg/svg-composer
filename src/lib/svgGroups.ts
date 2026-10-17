@@ -15,6 +15,20 @@ export interface GroupNode {
   height: number
 }
 
+/** A drawable element that is not a group: path, circle, rect, text, use, … */
+export interface LeafNode {
+  /** Index of the nearest selectable group, or -1 if the leaf sits right under the scene root. */
+  parent: number
+  tag: string
+  /** Visible axis-aligned bounds in source viewBox units; a straight line may have zero width. */
+  x: number
+  y: number
+  width: number
+  height: number
+  /** False when a clip path hides the leaf completely: it cannot be picked by a marquee. */
+  visible: boolean
+}
+
 const NON_RENDERED = new Set(['defs', 'clipPath', 'mask', 'pattern', 'symbol', 'marker'])
 
 /** Transparent full-canvas rect that Affinity Designer puts into every export. */
@@ -60,6 +74,15 @@ function intersect(a: Rect, b: Rect): Rect {
   return width > 0 && height > 0 ? { x, y, width, height } : EMPTY
 }
 
+/** Like `intersect`, but keeps zero-width/height results (straight lines); null when disjoint. */
+function intersectLoose(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x)
+  const y = Math.max(a.y, b.y)
+  const width = Math.min(a.x + a.width, b.x + b.width) - x
+  const height = Math.min(a.y + a.height, b.y + b.height) - y
+  return width >= 0 && height >= 0 ? { x, y, width, height } : null
+}
+
 function transformRect(box: DOMRect, m: DOMMatrix): Rect {
   const corners = [
     new DOMPoint(box.x, box.y),
@@ -93,7 +116,12 @@ function clipBounds(el: SVGGraphicsElement, toRoot: DOMMatrix): Rect | null {
  * Collects selectable groups of a mounted inline SVG in document order. Reads only; the source
  * DOM is not modified.
  */
-export function collectGroups(svg: SVGSVGElement): { nodes: GroupNode[]; elements: SVGGElement[] } {
+export function collectGroups(svg: SVGSVGElement): {
+  nodes: GroupNode[]
+  elements: SVGGElement[]
+  leaves: LeafNode[]
+  leafElements: SVGGraphicsElement[]
+} {
   // getCTM() maps to the <svg> viewport (CSS pixels); undo the viewBox scaling to get source units.
   const vb = svg.viewBox.baseVal
   const scale = svg.getBoundingClientRect().width / (vb.width || 1)
@@ -101,6 +129,8 @@ export function collectGroups(svg: SVGSVGElement): { nodes: GroupNode[]; element
 
   const nodes: GroupNode[] = []
   const elements: SVGGElement[] = []
+  const leaves: LeafNode[] = []
+  const leafElements: SVGGraphicsElement[] = []
   // Returns the visible bounds of the container's content: getBBox() of each shape mapped through
   // getCTM(), cut by its own and inherited clip-paths, since getBBox() of a group ignores clipping.
   const walk = (container: Element, parent: number, depth: number, inheritedClip: Rect): Rect => {
@@ -126,12 +156,16 @@ export function collectGroups(svg: SVGSVGElement): { nodes: GroupNode[]; element
         rect = walk(el, index, depth + 1, clip)
         Object.assign(nodes[index], rect)
       } else {
-        rect = intersect(transformRect(el.getBBox(), toRoot.multiply(el.getCTM() ?? new DOMMatrix())), clip)
+        const raw = transformRect(el.getBBox(), toRoot.multiply(el.getCTM() ?? new DOMMatrix()))
+        const visible = intersectLoose(raw, clip)
+        leaves.push({ parent, tag: el.tagName, ...(visible ?? raw), visible: visible !== null })
+        leafElements.push(el)
+        rect = intersect(raw, clip)
       }
       content = union(content, rect)
     }
     return content
   }
   walk(findContentRoot(svg), -1, 0, { x: vb.x, y: vb.y, width: vb.width, height: vb.height })
-  return { nodes, elements }
+  return { nodes, elements, leaves, leafElements }
 }

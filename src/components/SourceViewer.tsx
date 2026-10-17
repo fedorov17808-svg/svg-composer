@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { collectGroups, type GroupNode } from '../lib/svgGroups'
+import type { Rect } from '../lib/selection'
+import { collectGroups } from '../lib/svgGroups'
 import { meaningfulGroup, useEditorStore } from '../store/editor'
 import { assetUrl, type SourceInfo } from '../store/sources'
 
 const STAGE_PADDING = 24
+/** Pointer travel (px) after which a press becomes a marquee drag. */
+const DRAG_THRESHOLD = 3
 const svgCache = new Map<string, Promise<string>>()
 
 function fetchSvg(file: string) {
@@ -35,7 +38,7 @@ function useElementSize(ref: React.RefObject<HTMLElement | null>) {
 }
 
 /** Drawn in screen pixels (not viewBox units), so stroke width and dashes do not depend on zoom. */
-function Box({ node, kind, scale, vbX, vbY }: { node: GroupNode; kind: 'hover' | 'selected'; scale: number; vbX: number; vbY: number }) {
+function Box({ node, kind, scale, vbX, vbY }: { node: Rect; kind: 'hover' | 'selected' | 'marquee'; scale: number; vbX: number; vbY: number }) {
   return (
     <rect
       className={`overlay-box overlay-${kind}`}
@@ -47,15 +50,25 @@ function Box({ node, kind, scale, vbX, vbY }: { node: GroupNode; kind: 'hover' |
   )
 }
 
+interface Press {
+  start: { x: number; y: number }
+  /** Marquee if the pointer moves: pressed on empty space or with Alt. */
+  marquee: boolean
+  dragging: boolean
+}
+
 export function SourceViewer({ source }: { source: SourceInfo }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
   const elementsRef = useRef(new Map<Element, number>())
+  const leavesRef = useRef(new Map<Element, number>())
+  const pressRef = useRef<Press | null>(null)
+  const [marquee, setMarquee] = useState<Rect | null>(null)
   const stage = useElementSize(stageRef)
   const [markup, setMarkup] = useState<{ file: string; html: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const { nodes, hover, selection, setNodes, setHover, select, clearSelection } = useEditorStore()
+  const { nodes, leaves, hover, selection, selectedLeaves, setNodes, setHover } = useEditorStore()
 
   useEffect(() => {
     let cancelled = false
@@ -81,54 +94,106 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     const svg = hostRef.current?.querySelector('svg')
     if (!ready || !svg || width === 0) return
     if (useEditorStore.getState().nodes.length > 0 && elementsRef.current.size > 0) return
-    const { nodes, elements } = collectGroups(svg)
-    elementsRef.current = new Map(elements.map((el, i) => [el, i]))
-    setNodes(nodes, elements)
+    const index = collectGroups(svg)
+    elementsRef.current = new Map(index.elements.map((el, i) => [el, i]))
+    leavesRef.current = new Map(index.leafElements.map((el, i) => [el, i]))
+    setNodes(index)
   }, [ready, html, width, setNodes])
 
-  const groupAt = (target: EventTarget | null) => {
+  const indexAt = (map: Map<Element, number>, target: EventTarget | null) => {
     for (let el = target as Element | null; el && el !== hostRef.current; el = el.parentElement) {
-      const index = elementsRef.current.get(el)
+      const index = map.get(el)
       if (index !== undefined) return index
     }
     return null
   }
+  const groupAt = (target: EventTarget | null) => indexAt(elementsRef.current, target)
+  const leafAt = (target: EventTarget | null) => indexAt(leavesRef.current, target)
+
+  /** Client point → source viewBox units. */
+  const toSource = (clientX: number, clientY: number) => {
+    const rect = hostRef.current!.getBoundingClientRect()
+    return { x: vbX + (clientX - rect.left) / scale, y: vbY + (clientY - rect.top) / scale }
+  }
+
+  const rectFrom = (a: { x: number; y: number }, b: { x: number; y: number }): Rect => ({
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(a.x - b.x),
+    height: Math.abs(a.y - b.y),
+  })
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !hostRef.current) return
+    const onShape = groupAt(e.target) !== null || leafAt(e.target) !== null
+    pressRef.current = { start: { x: e.clientX, y: e.clientY }, marquee: e.altKey || !onShape, dragging: false }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current
+    if (!press) {
+      // Preview what a click would select.
+      const clicked = groupAt(e.target)
+      const index = clicked === null ? null : meaningfulGroup(nodes, clicked)
+      if (index !== hover) setHover(index)
+      return
+    }
+    const moved = Math.hypot(e.clientX - press.start.x, e.clientY - press.start.y) > DRAG_THRESHOLD
+    if (!press.marquee || (!press.dragging && !moved)) return
+    press.dragging = true
+    if (hover !== null) setHover(null)
+    setMarquee(rectFrom(toSource(press.start.x, press.start.y), toSource(e.clientX, e.clientY)))
+  }
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const press = pressRef.current
+    pressRef.current = null
+    setMarquee(null)
+    if (!press) return
+    const store = useEditorStore.getState()
+    if (press.dragging) {
+      store.selectRect(rectFrom(toSource(press.start.x, press.start.y), toSource(e.clientX, e.clientY)), e.shiftKey)
+      return
+    }
+    // Pointer capture retargets events to the stage; find what is under the pointer instead.
+    const target = document.elementFromPoint(e.clientX, e.clientY)
+    const group = groupAt(target)
+    const leaf = leafAt(target)
+    if (e.altKey && e.shiftKey) {
+      if (leaf !== null) store.deselectLeaf(leaf)
+    } else if (group !== null) store.select(group, e.shiftKey)
+    else if (leaf !== null) store.selectLeaf(leaf, e.shiftKey)
+    else if (!e.shiftKey) store.clearSelection()
+  }
+
+  const box = { scale, vbX, vbY }
 
   return (
     <div
       ref={stageRef}
-      className="workspace-stage"
-      onClick={(e) => e.target === e.currentTarget && clearSelection()}
+      className="workspace-stage source-stage"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => {
+        pressRef.current = null
+        setMarquee(null)
+      }}
+      onPointerLeave={() => !pressRef.current && setHover(null)}
     >
       {error && <p className="empty">Не удалось загрузить {source.file} ({error}).</p>}
       {!error && !ready && <p className="empty">Загрузка…</p>}
       {ready && (
         <div className="source-frame" style={{ width, height }}>
-          <div
-            ref={hostRef}
-            className="source-host"
-            dangerouslySetInnerHTML={html}
-            onPointerMove={(e) => {
-              // Preview what a click would select.
-              const clicked = groupAt(e.target)
-              const index = clicked === null ? null : meaningfulGroup(nodes, clicked)
-              if (index !== hover) setHover(index)
-            }}
-            onPointerLeave={() => setHover(null)}
-            onClick={(e) => {
-              const index = groupAt(e.target)
-              if (index !== null) select(index, e.shiftKey)
-              else if (!e.shiftKey) clearSelection()
-            }}
-          />
+          <div ref={hostRef} className="source-host" dangerouslySetInnerHTML={html} />
           <svg className="source-overlay" aria-hidden="true">
-            {selection.map(
-              ({ node }) =>
-                nodes[node] && <Box key={node} node={nodes[node]} kind="selected" {...{ scale, vbX, vbY }} />,
-            )}
+            {selection.map(({ node }) => nodes[node] && <Box key={node} node={nodes[node]} kind="selected" {...box} />)}
+            {selectedLeaves.map((l) => leaves[l] && <Box key={`l${l}`} node={leaves[l]} kind="selected" {...box} />)}
             {hover !== null && nodes[hover] && !selection.some((item) => item.node === hover) && (
-              <Box node={nodes[hover]} kind="hover" {...{ scale, vbX, vbY }} />
+              <Box node={nodes[hover]} kind="hover" {...box} />
             )}
+            {marquee && <Box node={marquee} kind="marquee" {...box} />}
           </svg>
         </div>
       )}
