@@ -79,7 +79,7 @@ async function render(browser: Browser, svg: string, prepare: string, arg: unkno
 }
 
 /** Share of differing pixels among pixels painted in either image. */
-async function diff(browser: Browser, a: string, b: string, size: { width: number; height: number }) {
+export async function diff(browser: Browser, a: string, b: string, size: { width: number; height: number }) {
   const page = await browser.newPage()
   const result = await page.evaluate(
     async ({ a, b, size }) => {

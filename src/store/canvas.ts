@@ -51,6 +51,8 @@ interface CanvasState {
   redo: () => void
   removeComponent: (componentId: string) => void
   setSize: (size: Size) => void
+  /** Replaces the whole composition (an opened project) as one undo step. */
+  replace: (size: Size, objects: CanvasObject[]) => void
   setStage: (stage: Size) => void
   setView: (view: View) => void
   fit: () => void
@@ -166,6 +168,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     },
     setSize: (size) => {
       commit({ size }, 'size')
+      get().fit()
+    },
+    replace: (size, objects) => {
+      commit({ size, objects, selectedId: null })
       get().fit()
     },
     setStage: (stage) => {

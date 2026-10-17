@@ -1,4 +1,4 @@
-import { createStore, del, set as idbSet, values } from 'idb-keyval'
+import { createStore, del, set as idbSet, setMany, values } from 'idb-keyval'
 import { create } from 'zustand'
 import { useCanvasStore } from './canvas'
 
@@ -23,28 +23,42 @@ interface LibraryState {
   components: LibraryComponent[]
   load: () => Promise<void>
   add: (component: LibraryComponent) => Promise<void>
+  /** Adds components the library does not have yet; existing ones (maybe renamed) stay as they are. */
+  addMissing: (components: LibraryComponent[]) => Promise<void>
   rename: (id: string, name: string) => Promise<void>
   remove: (id: string) => Promise<void>
 }
+
+/** The one load in flight or done; callers that need the library wait for it. */
+let loading: Promise<void> | null = null
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   status: 'idle',
   error: null,
   components: [],
-  load: async () => {
-    if (get().status === 'loading' || get().status === 'ready') return
-    set({ status: 'loading', error: null })
-    try {
-      const components = await values<LibraryComponent>(db)
-      components.sort((a, b) => a.createdAt - b.createdAt)
-      set({ status: 'ready', components })
-    } catch (err) {
-      set({ status: 'error', error: err instanceof Error ? err.message : String(err) })
-    }
-  },
+  load: () =>
+    (loading ??= (async () => {
+      set({ status: 'loading', error: null })
+      try {
+        const components = await values<LibraryComponent>(db)
+        components.sort((a, b) => a.createdAt - b.createdAt)
+        set({ status: 'ready', components })
+      } catch (err) {
+        loading = null
+        set({ status: 'error', error: err instanceof Error ? err.message : String(err) })
+      }
+    })()),
   add: async (component) => {
     await idbSet(component.id, component, db)
     set({ components: [...get().components, component] })
+  },
+  addMissing: async (components) => {
+    await get().load()
+    const have = new Set(get().components.map((c) => c.id))
+    const missing = components.filter((c) => !have.has(c.id))
+    if (!missing.length) return
+    await setMany(missing.map((c) => [c.id, c]), db)
+    set({ components: [...get().components, ...missing] })
   },
   rename: async (id, name) => {
     const component = get().components.find((c) => c.id === id)

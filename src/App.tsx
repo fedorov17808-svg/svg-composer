@@ -1,3 +1,4 @@
+import { FileMenu } from './components/FileMenu'
 import { LeftPanel } from './components/LeftPanel'
 import { RightPanel } from './components/RightPanel'
 import { Toast } from './components/Toast'
@@ -9,6 +10,7 @@ export default function App() {
       <header className="app-header">
         <h1 className="app-title">SVG Composer</h1>
         <span className="app-subtitle">конструктор векторных композиций</span>
+        <FileMenu />
       </header>
       <div className="app-body">
         <LeftPanel />

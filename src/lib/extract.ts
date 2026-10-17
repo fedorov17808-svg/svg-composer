@@ -109,7 +109,7 @@ const URL_REF = /url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g
 const HREF_ATTRS = ['href', 'xlink:href']
 
 /** Ids an element refers to via `url(#…)` in any attribute or `href="#…"`, not including descendants. */
-function ownRefs(el: Element): string[] {
+export function ownRefs(el: Element): string[] {
   const ids: string[] = []
   for (const attr of el.attributes) {
     for (const [, id] of attr.value.matchAll(URL_REF)) ids.push(id)
@@ -118,7 +118,7 @@ function ownRefs(el: Element): string[] {
   return ids
 }
 
-const allElements = (root: Element) => [root, ...root.querySelectorAll('*')]
+export const allElements = (root: Element) => [root, ...root.querySelectorAll('*')]
 
 /**
  * Finds every element the given subtrees depend on: `url(#…)` and `href="#…"` references, followed
