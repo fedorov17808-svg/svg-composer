@@ -143,4 +143,19 @@ describe('extract', () => {
     expect([c.width, c.height]).toEqual([50, 45])
     expect(c.defs.match(/<clipPath/g)).toHaveLength(1)
   })
+
+  it('does not copy a clip path into defs when it is already inside the selection', () => {
+    const svg = parse(
+      `<svg xmlns="http://www.w3.org/2000/svg"><g id="sel"><clipPath id="c"><path d="M0 0h5v5z"/></clipPath>` +
+        `<g clip-path="url(#c)"><path d="M0 0h9v9z"/></g></g></svg>`,
+    )
+    const result = extract({
+      elements: [svg.querySelector('#sel')!],
+      bounds: [{ x: 0, y: 0, width: 9, height: 9 }],
+      prefix: 'p-',
+    })
+    expect(result.defs).toBe('')
+    expect(ids(result.markup)).toEqual(['p-sel', 'p-c'])
+    expect(refs(result.markup)).toEqual(['p-c'])
+  })
 })

@@ -26,6 +26,11 @@ interface EditorState {
 
 /** A click picks the smallest ancestor covering at least this share of the scene's area. */
 const MIN_AREA_SHARE = 0.1
+/**
+ * A group whose parent is at most this much bigger is a layer of the same object, not an object:
+ * a gopher's body fill and outline sit in one group, eyes and paws in its siblings.
+ */
+const SAME_OBJECT_AREA_RATIO = 1.5
 
 /** Area of the union of top-level groups: the drawing itself, without empty margins. */
 function sceneArea(nodes: GroupNode[]) {
@@ -38,10 +43,20 @@ function sceneArea(nodes: GroupNode[]) {
   return (right - x) * (bottom - y)
 }
 
-/** Walks up from the clicked group to a meaningful object: big enough or directly under the root. */
+const areaOf = (n: GroupNode) => n.width * n.height
+
+/**
+ * Walks up from the clicked group to a meaningful object: big enough and not just a layer of its
+ * parent, or directly under the root.
+ */
 export function meaningfulGroup(nodes: GroupNode[], node: number, area = sceneArea(nodes)) {
   let n = node
-  while (nodes[n].parent >= 0 && nodes[n].width * nodes[n].height < area * MIN_AREA_SHARE) n = nodes[n].parent
+  for (let p = nodes[n].parent; p >= 0; p = nodes[n].parent) {
+    const small = areaOf(nodes[n]) < area * MIN_AREA_SHARE
+    const layer = areaOf(nodes[p]) <= areaOf(nodes[n]) * SAME_OBJECT_AREA_RATIO
+    if (!small && !layer) break
+    n = p
+  }
   return n
 }
 

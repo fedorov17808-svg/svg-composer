@@ -25,3 +25,7 @@ dist-ssr
 
 # Claude Code local
 .claude/
+
+# Playwright
+/test-results/
+/playwright-report/

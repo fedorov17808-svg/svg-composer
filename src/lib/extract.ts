@@ -262,11 +262,14 @@ export function extract({ elements, bounds, prefix }: ExtractInput): ExtractResu
   }
 
   const byId = new Map([...svg.querySelectorAll('[id]')].map((el) => [el.getAttribute('id')!, el]))
-  const defs = collectDefs([root], byId).map((original) => {
-    const clone = original.cloneNode(true) as Element
-    bakeInherited(clone, original)
-    return clone
-  })
+  // Refs are followed on the clones but resolve to originals; skip those already cloned with the selection.
+  const defs = collectDefs([root], byId)
+    .filter((original) => !sorted.some((el) => el.contains(original)))
+    .map((original) => {
+      const clone = original.cloneNode(true) as Element
+      bakeInherited(clone, original)
+      return clone
+    })
 
   prefixIds([root, ...defs], prefix)
 
