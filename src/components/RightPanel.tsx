@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { normalizeAngle, type CanvasObject } from '../lib/canvas'
 import { componentSvg, extract, unionRects } from '../lib/extract'
-import { defaultName } from '../lib/names'
+import { defaultName, uniqueName } from '../lib/names'
 import { useCanvasStore } from '../store/canvas'
-import { selectedParts, selectionUnits, useEditorStore } from '../store/editor'
+import { selectedParts, selectionUnits, useEditorStore, wholeMarkName } from '../store/editor'
 import { useLibraryStore } from '../store/library'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
@@ -82,6 +82,12 @@ function SelectionInfo() {
         return (
           <li key={key} className="selection-item">
             <dl className="props">
+              {u.mark >= 0 && (
+                <>
+                  <dt>Название</dt>
+                  <dd>{state.marks[u.mark].name}</dd>
+                </>
+              )}
               {pieces > 1 ? (
                 <>
                   <dt>Объект</dt>
@@ -172,7 +178,10 @@ function AddToLibrary() {
   const sourceId = useEditorStore((s) => s.openSourceId)
   const sourceTitle = useSourcesStore((s) => s.sources.find((item) => item.id === sourceId)?.title)
   const names = useLibraryStore((s) => s.components.map((c) => c.name).join('\n'))
-  const placeholder = defaultName(sourceId ?? '', sourceTitle, names.split('\n'))
+  const markName = useEditorStore(wholeMarkName)
+  const placeholder = markName
+    ? uniqueName(markName, names.split('\n'))
+    : defaultName(sourceId ?? '', sourceTitle, names.split('\n'))
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

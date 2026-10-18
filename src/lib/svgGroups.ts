@@ -101,6 +101,24 @@ function transformRect(box: DOMRect, m: DOMMatrix): Rect {
   return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
 }
 
+/**
+ * A straight stroked line has a zero-width (or zero-height) box: it would add nothing to its group's
+ * bounds and could not be picked. Such a side is widened to the stroke width, centered on the line.
+ */
+export function padZeroSide(rect: Rect, strokeWidth: number): Rect {
+  if (strokeWidth <= 0 || (rect.width > 0 && rect.height > 0)) return rect
+  const padX = rect.width > 0 ? 0 : strokeWidth / 2
+  const padY = rect.height > 0 ? 0 : strokeWidth / 2
+  return { x: rect.x - padX, y: rect.y - padY, width: rect.width + padX * 2, height: rect.height + padY * 2 }
+}
+
+/** Stroke width of a shape in root units, 0 when it has no stroke. */
+function strokeWidthOf(el: SVGGraphicsElement, m: DOMMatrix) {
+  const style = getComputedStyle(el)
+  if (!style.stroke || style.stroke === 'none') return 0
+  return (parseFloat(style.strokeWidth) || 0) * Math.sqrt(Math.abs(m.a * m.d - m.b * m.c))
+}
+
 /** Bounds of a `clip-path` (userSpaceOnUse) in root units, or null if the element is not clipped. */
 function clipBounds(el: SVGGraphicsElement, toRoot: DOMMatrix): Rect | null {
   const ref = /url\(#([^)]+)\)/.exec(el.getAttribute('clip-path') ?? '')
@@ -163,7 +181,8 @@ export function collectGroups(svg: SVGSVGElement): {
         rect = walk(el, index, depth + 1, clip)
         Object.assign(nodes[index], rect)
       } else {
-        const raw = transformRect(el.getBBox(), toRoot.multiply(el.getCTM() ?? new DOMMatrix()))
+        const m = toRoot.multiply(el.getCTM() ?? new DOMMatrix())
+        const raw = padZeroSide(transformRect(el.getBBox(), m), strokeWidthOf(el, m))
         const visible = intersectLoose(raw, clip)
         leaves.push({ parent, tag: el.tagName, order: order++, ...(visible ?? raw), visible: visible !== null })
         leafElements.push(el)

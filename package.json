@@ -11,7 +11,8 @@
     "prepare-svg": "node scripts/prepare-svg.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "objects": "node scripts/objects.mjs"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",

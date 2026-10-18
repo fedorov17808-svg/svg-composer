@@ -10,6 +10,7 @@ import {
   type ObjectIndex,
   type SceneObject,
 } from '../lib/objects'
+import { fitsTree, markBox, markIndex, type MarkedObject, type MarkIndex } from '../lib/marks'
 import { collapse, groupLeaves, leafInGroup, pickInRect, type Rect } from '../lib/selection'
 import type { GroupNode, LeafNode } from '../lib/svgGroups'
 
@@ -32,19 +33,31 @@ export interface SourceIndex {
   viewBox: Rect
 }
 
-export interface EditorState extends SourceIndex, ObjectIndex {
+/** Marked-up objects of the open source (`objects.json`) with their boxes; empty without markup. */
+export interface MarkState extends MarkIndex {
+  marks: MarkedObject[]
+  markBoxes: Rect[]
+}
+
+/** What a click would select, under the pointer: its frame and the key of its selection unit. */
+export interface Hover {
+  key: string
+  box: Rect
+}
+
+export interface EditorState extends SourceIndex, ObjectIndex, MarkState {
   openSourceId: string | null
-  /** Object a click would select, under the pointer. */
-  hover: number | null
+  hover: Hover | null
   /** Selected groups. */
   selection: SelectedItem[]
   /** Selected leaves not covered by `selection`: parts of objects, marquee picks, loose shapes. */
   selectedLeaves: number[]
   open: (id: string) => void
   close: () => void
-  setNodes: (index: SourceIndex) => void
-  setHover: (object: number | null) => void
-  /** Click on a group: selects the object the click means (see `clickedObject`). */
+  /** Indexes the mounted source; `marks` is its markup, used when it fits the index. */
+  setNodes: (index: SourceIndex, marks?: MarkedObject[]) => void
+  setHover: (hover: Hover | null) => void
+  /** Click on a group: selects its marked-up object, else the object the click means (`clickedObject`). */
   select: (group: number, additive: boolean) => void
   /** Click on a shape that is a part of an object (its object), or that belongs to no group. */
   selectLeaf: (leaf: number, additive: boolean) => void
@@ -129,6 +142,29 @@ export function meaningfulGroup(nodes: GroupNode[], node: number) {
   return clickedObject(state, { group: node }).groups[0]
 }
 
+/** Marked-up object a click on `target` selects, or -1 when the target is in none. */
+export const markOf = (state: Partial<MarkIndex>, target: ClickTarget) =>
+  ('group' in target ? state.groupMark?.[target.group] : state.leafMark?.[target.leaf]) ?? -1
+
+/** Markup state for an index; markup that does not fit it (a changed source) is ignored. */
+export function markState(index: Pick<SourceIndex, 'nodes' | 'leaves'>, marks: MarkedObject[] = []): MarkState {
+  const tree = { groupParent: index.nodes.map((n) => n.parent), leafParent: index.leaves.map((l) => l.parent) }
+  const fit = fitsTree(marks, tree) ? marks : []
+  return {
+    marks: fit,
+    markBoxes: fit.map((m) => markBox(m, index.nodes, index.leaves)),
+    ...markIndex(fit, tree),
+  }
+}
+
+/** What a click on `target` selects, for the hover frame. */
+export function clickHover(state: EditorState, target: ClickTarget): Hover {
+  const m = markOf(state, target)
+  if (m >= 0) return { key: `m${m}`, box: state.markBoxes[m] }
+  const o = clickedObject(state, target)
+  return { key: `o${state.objects.indexOf(o)}`, box: o.box }
+}
+
 const EMPTY_SOURCE = {
   nodes: [],
   elements: [],
@@ -138,6 +174,10 @@ const EMPTY_SOURCE = {
   objects: [],
   groupObject: [],
   leafObject: [],
+  marks: [],
+  markBoxes: [],
+  groupMark: [],
+  leafMark: [],
   hover: null,
   selection: [],
   selectedLeaves: [],
@@ -181,6 +221,9 @@ const normalize = (nodes: GroupNode[], items: SelectedItem[]) =>
 
 /** One selected thing as the user sees it: an object (or part of one), a group, or a loose shape. */
 export interface SelectionUnit {
+  key: string
+  /** Marked-up object index, or -1 outside the markup. */
+  mark: number
   /** Object index, or -1 for a loose leaf. */
   object: number
   items: SelectedItem[]
@@ -188,22 +231,27 @@ export interface SelectionUnit {
   box: Rect
 }
 
-/** Selected groups and leaves put together by object: one frame and one card per unit. */
+/** Selected groups and leaves put together by marked-up object, else by object: one frame and one card per unit. */
 export function selectionUnits(
-  state: Pick<EditorState, 'nodes' | 'leaves' | 'selection' | 'selectedLeaves' | 'groupObject' | 'leafObject'>,
+  state: Pick<EditorState, 'nodes' | 'leaves' | 'selection' | 'selectedLeaves' | 'groupObject' | 'leafObject'> &
+    Partial<MarkIndex>,
 ): SelectionUnit[] {
   const units = new Map<string, SelectionUnit>()
-  const unit = (key: string, object: number) => {
-    if (!units.has(key)) units.set(key, { object, items: [], leaves: [], box: { x: 0, y: 0, width: 0, height: 0 } })
+  const unit = (key: string, mark: number, object: number) => {
+    if (!units.has(key)) units.set(key, { key, mark, object, items: [], leaves: [], box: { x: 0, y: 0, width: 0, height: 0 } })
     return units.get(key)!
   }
   for (const item of state.selection) {
+    const m = markOf(state, { group: item.node })
     const o = state.groupObject[item.node] ?? -1
-    unit(o >= 0 ? `o${o}` : `g${item.node}`, o).items.push(item)
+    if (m >= 0) unit(`m${m}`, m, -1).items.push(item)
+    else unit(o >= 0 ? `o${o}` : `g${item.node}`, -1, o).items.push(item)
   }
   for (const l of state.selectedLeaves) {
+    const m = markOf(state, { leaf: l })
     const o = state.leafObject[l] ?? -1
-    unit(o >= 0 ? `o${o}` : `l${l}`, o).leaves.push(l)
+    if (m >= 0) unit(`m${m}`, m, -1).leaves.push(l)
+    else unit(o >= 0 ? `o${o}` : `l${l}`, -1, o).leaves.push(l)
   }
   return [...units.values()].flatMap((u) => {
     const rects = [...u.items.map((item) => state.nodes[item.node]), ...u.leaves.map((l) => state.leaves[l])]
@@ -211,11 +259,20 @@ export function selectionUnits(
   })
 }
 
-const memberCount = (o: SceneObject) => o.groups.length + o.leaves.length
+const memberCount = (o: { groups: number[]; leaves: number[] }) => o.groups.length + o.leaves.length
 
-/** Whether the unit holds every member of its object. */
-const isWhole = (state: Pick<EditorState, 'objects'>, u: SelectionUnit) =>
-  u.object < 0 || u.items.length + u.leaves.length === memberCount(state.objects[u.object])
+/** Whether the unit holds every member of its marked-up object or object. */
+const isWhole = (state: Pick<EditorState, 'objects' | 'marks'>, u: SelectionUnit) => {
+  const count = u.items.length + u.leaves.length
+  if (u.mark >= 0) return count === memberCount(state.marks[u.mark])
+  return u.object < 0 || count === memberCount(state.objects[u.object])
+}
+
+/** Name of the marked-up object when exactly one is selected whole, else null. */
+export function wholeMarkName(state: EditorState) {
+  const units = selectionUnits(state)
+  return units.length === 1 && units[0].mark >= 0 && isWhole(state, units[0]) ? state.marks[units[0].mark].name : null
+}
 
 /** Whether "level down" changes anything: an object narrows to what was clicked, a group to its child. */
 export const canLevelDown = (state: EditorState) =>
@@ -227,12 +284,14 @@ export const canLevelDown = (state: EditorState) =>
 export const canLevelUp = (state: EditorState) =>
   selectionUnits(state).some((u) => {
     if (!isWhole(state, u)) return true
+    // A whole marked-up object is the top: what is around it is other objects.
+    if (u.mark >= 0) return false
     if (u.object >= 0) return state.objects[u.object].parent >= 0
     return u.leaves.some((l) => state.leaves[l]?.parent >= 0)
   })
 
 /** Selection of a whole object, every group with the given anchor. */
-const objectSelection = (o: SceneObject, anchor: number) => ({
+const objectSelection = (o: { groups: number[]; leaves: number[] }, anchor: number) => ({
   items: o.groups.map((node) => ({ node, anchor })),
   leaves: o.leaves,
 })
@@ -242,7 +301,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
   const pick = (target: ClickTarget, anchor: number, additive: boolean) => {
     const state = get()
     const { nodes, leaves, selection, selectedLeaves } = state
-    const picked = objectSelection(clickedObject(state, target), anchor)
+    const m = markOf(state, target)
+    const picked = objectSelection(m >= 0 ? state.marks[m] : clickedObject(state, target), anchor)
     if (!additive) return set({ selection: picked.items, selectedLeaves: picked.leaves })
     const hit = selectionUnits(state).find((u) =>
       'group' in target
@@ -273,9 +333,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
       set({ openSourceId: id, ...EMPTY_SOURCE })
     },
     close: () => set({ openSourceId: null, ...EMPTY_SOURCE }),
-    setNodes: (index) =>
+    setNodes: (index, marks) =>
       set({
         ...index,
+        ...markState(index, marks),
         ...buildObjects(index.nodes, index.leaves, areasOf(index)),
         hover: null,
         selection: [],
@@ -285,8 +346,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
     // What was clicked stays the anchor, so "level down" refines back to it.
     select: (group, additive) => pick({ group }, group, additive),
     selectLeaf: (leaf, additive) => {
-      const { leafObject, selectedLeaves } = get()
-      if (leafObject[leaf] >= 0) return pick({ leaf }, -(leaf + 1), additive)
+      const { leafObject, leafMark, selectedLeaves } = get()
+      if (leafObject[leaf] >= 0 || leafMark[leaf] >= 0) return pick({ leaf }, -(leaf + 1), additive)
       if (!additive) return set({ selection: [], selectedLeaves: [leaf] })
       if (selectedLeaves.includes(leaf)) return get().deselectLeaf(leaf)
       get().setPicked([...pickedLeaves(get()), leaf])
@@ -296,6 +357,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const areas = areasOf(state)
       // Bounds of what a click on the leaf would select.
       const inside = pickInRect(state.leaves, rect, (leaf) => {
+        if (state.leafMark[leaf] >= 0) return state.markBoxes[state.leafMark[leaf]]
         if (state.leafObject[leaf] >= 0) return clickedObject(state, { leaf }, areas).box
         const parent = state.leaves[leaf].parent
         return parent < 0 ? null : clickedObject(state, { group: parent }, areas).box
@@ -327,15 +389,16 @@ export const useEditorStore = create<EditorState>((set, get) => {
     clearSelection: () => set({ selection: [], selectedLeaves: [] }),
     levelUp: () => {
       const state = get()
-      const { nodes, leaves, objects, groupObject } = state
+      const { nodes, leaves, objects, groupObject, marks } = state
       const next: SelectedItem[] = []
       const nextLeaves: number[] = []
       for (const u of selectionUnits(state)) {
         const anchor = u.items[0]?.anchor ?? -(u.leaves[0] + 1)
         // A part widens to its whole object first, a whole object to its parent's object; a loose
         // leaf goes up to its group, leaves right under the root stay.
-        let target: SceneObject | null = null
-        if (!isWhole(state, u)) target = objects[u.object]
+        let target: { groups: number[]; leaves: number[] } | null = null
+        if (u.mark >= 0) target = marks[u.mark]
+        else if (!isWhole(state, u)) target = objects[u.object]
         else if (u.object >= 0 && objects[u.object].parent >= 0) target = objects[groupObject[objects[u.object].parent]]
         else if (u.object < 0 && leaves[u.leaves[0]]?.parent >= 0) target = objects[groupObject[leaves[u.leaves[0]].parent]]
         const picked = target ? objectSelection(target, anchor) : { items: u.items, leaves: u.leaves }
@@ -352,7 +415,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
     },
     levelDown: () => {
       const state = get()
-      const { nodes } = state
+      const { nodes, leaves } = state
       const next: SelectedItem[] = []
       const nextLeaves: number[] = []
       for (const u of selectionUnits(state)) {
@@ -360,7 +423,9 @@ export const useEditorStore = create<EditorState>((set, get) => {
         if (u.items.length + u.leaves.length > 1) {
           // An object narrows to what was clicked: the shape, or the member group holding it.
           const leaf = anchor !== undefined && anchor < 0 ? -anchor - 1 : -1
-          const group = u.items.find((item) => item.anchor >= 0 && covers(nodes, item.node, item.anchor))
+          const group = u.items.find((item) =>
+            item.anchor >= 0 ? covers(nodes, item.node, item.anchor) : leafInGroup(nodes, leaves, leaf, item.node),
+          )
           if (u.leaves.includes(leaf)) nextLeaves.push(leaf)
           else if (group) next.push(group)
           else if (u.items.length) next.push(u.items[0])

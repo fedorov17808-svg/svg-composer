@@ -94,7 +94,7 @@ for (const width of [1024, 1440]) {
       while (useEditorStore.getState().nodes.length === 0) await new Promise((r) => setTimeout(r, 50))
       useEditorStore.getState().select(39, false)
     })
-    await expect(page.getByLabel('Название')).toHaveAttribute('placeholder', 'Гофер · 12')
+    await expect(page.getByLabel('Название')).toHaveAttribute('placeholder', 'Фонарь')
     await expectCompactHeader(page)
     await page.screenshot({ path: info.outputPath(`source-${width}.png`) })
   })

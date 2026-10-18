@@ -1,8 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Rect } from '../lib/selection'
 import { collectGroups } from '../lib/svgGroups'
-import { clickedObject, selectionUnits, useEditorStore, type ClickTarget } from '../store/editor'
-import { assetUrl, type SourceInfo } from '../store/sources'
+import { clickHover, selectionUnits, useEditorStore, type ClickTarget } from '../store/editor'
+import { assetUrl, useSourcesStore, type SourceInfo } from '../store/sources'
 
 const STAGE_PADDING = 24
 /** Pointer travel (px) after which a press becomes a marquee drag. */
@@ -69,7 +69,7 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   const [error, setError] = useState<string | null>(null)
 
   const editor = useEditorStore()
-  const { objects, hover, setNodes, setHover } = editor
+  const { hover, setNodes, setHover } = editor
 
   useEffect(() => {
     let cancelled = false
@@ -98,8 +98,8 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
     const index = collectGroups(svg)
     elementsRef.current = new Map(index.elements.map((el, i) => [el, i]))
     leavesRef.current = new Map(index.leafElements.map((el, i) => [el, i]))
-    setNodes(index)
-  }, [ready, html, width, setNodes])
+    setNodes(index, useSourcesStore.getState().objects[source.id])
+  }, [ready, html, width, setNodes, source.id])
 
   const indexAt = (map: Map<Element, number>, target: EventTarget | null) => {
     for (let el = target as Element | null; el && el !== hostRef.current; el = el.parentElement) {
@@ -112,9 +112,11 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   const leafAt = (target: EventTarget | null) => indexAt(leavesRef.current, target)
   /** What a click on `target` starts from: a shape that is a part of an object, or its group. */
   const clickTarget = (target: EventTarget | null): ClickTarget | null => {
-    const { leaves, leafObject } = useEditorStore.getState()
+    const { leaves, leafObject, leafMark } = useEditorStore.getState()
     const group = groupAt(target)
     const leaf = leafAt(target)
+    // A marked-up shape selects its own object, wherever it is drawn (a paw in front of a shop).
+    if (leaf !== null && leafMark[leaf] >= 0) return { leaf }
     if (leaf !== null && leafObject[leaf] >= 0 && leaves[leaf].parent === (group ?? -1)) return { leaf }
     return group === null ? null : { group }
   }
@@ -145,8 +147,8 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
       // Preview what a click would select.
       const state = useEditorStore.getState()
       const target = clickTarget(e.target)
-      const index = target === null ? null : state.objects.indexOf(clickedObject(state, target))
-      if (index !== hover) setHover(index)
+      const next = target === null ? null : clickHover(state, target)
+      if (next?.key !== hover?.key) setHover(next)
       return
     }
     const moved = Math.hypot(e.clientX - press.start.x, e.clientY - press.start.y) > DRAG_THRESHOLD
@@ -181,7 +183,7 @@ export function SourceViewer({ source }: { source: SourceInfo }) {
   const box = { scale, vbX, vbY }
   // One frame per object, however many groups and shapes it is made of.
   const units = selectionUnits(editor)
-  const hovered = hover !== null && objects[hover] && !units.some((u) => u.object === hover) ? objects[hover].box : null
+  const hovered = hover && !units.some((u) => u.key === hover.key) ? hover.box : null
 
   return (
     <div

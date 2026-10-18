@@ -1,0 +1,114 @@
+{
+  "s01": [
+    {"op": "name", "object": 0, "name": "Гофер слева"},
+    {"op": "name", "object": 1, "name": "Подмигивающий гофер"},
+    {"op": "name", "object": 2, "name": "График роста"},
+    {"op": "rest", "object": 2}
+  ],
+  "s02": [
+    {"op": "name", "object": 0, "name": "Испуганный гофер"},
+    {"op": "name", "object": 1, "name": "Удивлённый гофер"},
+    {"op": "split", "object": 1, "name": "Ограждение", "groups": [10, 11, 12], "leaves": [106, 107]},
+    {"op": "name", "object": 2, "name": "Надпись HEY!"},
+    {"op": "rest", "object": 0}
+  ],
+  "s03": [
+    {"op": "merge", "objects": [0, 1, 2, 3, 4], "name": "Магазин"},
+    {"op": "add", "object": 5, "leaves": [44]},
+    {"op": "name", "object": 5, "name": "Гофер"},
+    {"op": "rest", "object": 0}
+  ],
+  "s04": [
+    {"op": "merge", "objects": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24], "name": "Календарь"},
+    {"op": "name", "object": 25, "name": "Гофер"},
+    {"op": "rest", "object": 0}
+  ],
+  "s05": [
+    {"op": "merge", "objects": [0, 1, 2, 3, 4], "name": "Гофер со спины"},
+    {"op": "merge", "objects": [5, 6, 7, 8, 9], "name": "Указатель"},
+    {"op": "rest", "object": 5}
+  ],
+  "s06": [
+    {"op": "merge", "objects": [0, 1, 2, 3, 4, 5], "name": "Гонг"},
+    {"op": "name", "object": 6, "name": "Доска го"},
+    {"op": "name", "object": 7, "name": "Гофер слева"},
+    {"op": "name", "object": 8, "name": "Испуганный гофер справа"},
+    {"op": "rest", "object": 0}
+  ],
+  "s07": [
+    {"op": "name", "object": 0, "name": "Гофер со смартфоном"},
+    {"op": "name", "object": 1, "name": "Большая метка"},
+    {"op": "name", "object": 2, "name": "Метка сверху"},
+    {"op": "name", "object": 3, "name": "Метка слева"},
+    {"op": "rest", "object": 0}
+  ],
+  "s08": [
+    {"op": "merge", "objects": [0, 1], "name": "Розовый гофер с монетой"},
+    {"op": "name", "object": 2, "name": "Копилка"},
+    {"op": "rest", "object": 0}
+  ],
+  "s09": [
+    {"op": "merge", "objects": [16, 19], "name": "Гофер"},
+    {"op": "name", "object": 11, "name": "Палочки"},
+    {"op": "merge", "objects": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15, 17, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "name": "Миска с лапшой"},
+    {"op": "rest", "object": 0}
+  ],
+  "s10": [
+    {"op": "name", "object": 0, "name": "Гофер-мудрец"},
+    {"op": "rest", "name": "Посох"}
+  ],
+  "s11": [
+    {"op": "merge", "objects": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "name": "Пагода"},
+    {"op": "name", "object": 12, "name": "Гофер"},
+    {"op": "rest", "object": 0}
+  ],
+  "s12": [
+    {"op": "merge", "objects": [0, 1], "name": "Гофер с шестом"},
+    {"op": "merge", "objects": [2, 3, 4, 5, 6, 7, 8, 9, 10], "name": "Фонарь"},
+    {"op": "rest", "object": 2}
+  ],
+  "s13": [
+    {"op": "name", "object": 0, "name": "Гофер с пандой"},
+    {"op": "rest", "object": 0}
+  ],
+  "s14": [
+    {"op": "add", "object": 0, "groups": [3, 43]},
+    {"op": "name", "object": 0, "name": "Карп"},
+    {"op": "name", "object": 1, "name": "Гофер-рыбак"},
+    {"op": "rest", "object": 1}
+  ],
+  "s15": [
+    {"op": "merge", "objects": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], "name": "Лес"},
+    {"op": "name", "object": 1, "name": "Гофер в VR-шлеме"},
+    {"op": "rest", "object": 0}
+  ],
+  "s16": [
+    {"op": "name", "object": 0, "name": "Голубой гофер в окне"},
+    {"op": "name", "object": 1, "name": "Розовый гофер в окне"},
+    {"op": "name", "object": 2, "name": "Облачко HI!"},
+    {"op": "name", "object": 3, "name": "Облачко HELLO!"},
+    {"op": "rest", "object": 0}
+  ],
+  "s17": [
+    {"op": "name", "object": 0, "name": "Испуганный гофер"},
+    {"op": "merge", "objects": [1, 2], "name": "Бомба"},
+    {"op": "rest", "object": 1}
+  ],
+  "s18": [
+    {"op": "merge", "objects": [0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "name": "Йети"},
+    {"op": "name", "object": 3, "name": "Гофер"},
+    {"op": "rest", "object": 0}
+  ],
+  "s19": [
+    {"op": "merge", "objects": [1, 2, 3, 4, 5], "name": "Гофер-снеговик"},
+    {"op": "merge", "objects": [0, 6], "name": "Снежки"},
+    {"op": "rest", "object": 1}
+  ],
+  "s20": [
+    {"op": "name", "object": 0, "name": "Гофер слева"},
+    {"op": "split", "object": 1, "name": "Гирлянда", "leaves": [47]},
+    {"op": "name", "object": 1, "name": "Ёлка со звездой"},
+    {"op": "name", "object": 2, "name": "Гофер справа"},
+    {"op": "rest", "object": 1}
+  ]
+}

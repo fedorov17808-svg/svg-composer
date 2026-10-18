@@ -4,31 +4,30 @@ import { openSource, skipDemo } from './render'
 test.beforeEach(skipDemo)
 
 /**
- * Logical objects on all 20 sources: a real click in the middle of every large object selects the
- * whole object; a gopher never comes out as a bare body (body fill without eyes); nothing selected
- * is bigger than 70 % of the illustration or holds two characters. Prints a table of what a click
- * on each object selects.
+ * Marked-up objects (`public/sources/objects.json`) on all 20 sources: a real click on every object
+ * selects exactly its groups and shapes, as one unit; a gopher never comes out as a bare body (body
+ * fill without eyes); nothing is bigger than the illustration. Prints a table of what was selected.
  */
 
 const SOURCES = Array.from({ length: 20 }, (_, i) => `s${String(i + 1).padStart(2, '0')}`)
-/** Objects at least this share of the drawing's area are checked. */
-const LARGE_SHARE = 0.05
 /** Gopher body fills: cyan and pink gophers. */
 const GOPHER_BODY = ['#61e0ee', '#e98fca']
 /** Gophers without visible eyes in the source too: s05 is drawn from behind, s15 wears a VR headset. */
-const NO_FACE = new Set(['s05:#10', 's15:#13'])
+const NO_FACE = new Set(['s05:Гофер со спины', 's15:Гофер в VR-шлеме'])
+/** Fills that must be in an object: the shop's awning stripes and its paw drawn in front of the shop. */
+const MUST_HAVE: Record<string, string[]> = {
+  's03:Магазин': ['#ffebe6', '#be2800'],
+  's03:Гофер': ['#d6c295'],
+  's05:Гофер со спины': ['#d6c295'],
+}
 
 interface Target {
-  object: number
   label: string
   groups: number[]
   leaves: number[]
   x: number
   y: number
 }
-
-/** Same share as `MAX_ILLUSTRATION_SHARE` in `src/lib/objects.ts`. */
-const MAX_ILLUSTRATION_SHARE = 0.7
 
 interface Row {
   source: string
@@ -46,47 +45,40 @@ interface Row {
 const table: Row[] = []
 
 for (const source of SOURCES) {
-  test(`${source}: клик по каждому крупному объекту выбирает его целиком`, async ({ page }, info) => {
+  test(`${source}: клик по каждому размеченному объекту выбирает его целиком`, async ({ page }, info) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/')
     await openSource(page, source)
 
-    // Click-level objects (what a click on one of their members selects) and a point that hits them.
-    const { targets, viewBox } = await page.evaluate(async (LARGE_SHARE) => {
-      const { useEditorStore, clickedObject } = await import('/src/store/editor.ts')
-      const { unionRects } = await import('/src/lib/extract.ts')
+    // Marked-up objects and a point that hits each of them.
+    const { targets, viewBox, total } = await page.evaluate(async () => {
+      const { useEditorStore, markOf } = await import('/src/store/editor.ts')
       const state = useEditorStore.getState()
-      const { nodes, elements, leaves, leafElements, objects, leafObject } = state
+      const { elements, leafElements, marks, markBoxes, leafMark } = state
       const svg = elements[0].ownerSVGElement!
       const vb = svg.viewBox.baseVal
       const rect = svg.getBoundingClientRect()
       const k = rect.width / vb.width
-      const scene = unionRects(nodes.filter((n) => n.parent < 0 && n.width > 0 && n.height > 0))
       const groupOf = new Map(elements.map((el, i) => [el as Element, i]))
       const leafOf = new Map(leafElements.map((el, i) => [el as Element, i]))
-      // Same rule as the source viewer: a shape that is a part of an object, else its group.
-      const targetAt = (x: number, y: number) => {
-        let group: number | null = null
+      // Same rule as the source viewer: a marked-up shape, else its group.
+      const markAt = (x: number, y: number) => {
         let leaf: number | null = null
         for (let el = document.elementFromPoint(x, y); el && el !== svg; el = el.parentElement) {
-          if (leaf === null && leafOf.has(el)) leaf = leafOf.get(el)!
-          if (groupOf.has(el)) {
-            group = groupOf.get(el)!
-            break
+          if (leaf === null && leafOf.has(el)) {
+            leaf = leafOf.get(el)!
+            if (leafMark[leaf] >= 0) return leafMark[leaf]
           }
+          if (groupOf.has(el)) return markOf(state, { group: groupOf.get(el)! })
         }
-        if (leaf !== null && leafObject[leaf] >= 0 && leaves[leaf].parent === (group ?? -1)) return { leaf }
-        return group === null ? null : { group }
+        return -1
       }
-      const targets: { object: number; label: string; groups: number[]; leaves: number[]; x: number; y: number }[] = []
-      objects.forEach((object, index) => {
-        const start = object.groups.length ? { group: object.groups[0] } : { leaf: object.leaves[0] }
-        if (clickedObject(state, start) !== object) return
-        const box = object.box
-        if (box.width * box.height < scene.width * scene.height * LARGE_SHARE) return
+      const targets: { label: string; groups: number[]; leaves: number[]; x: number; y: number }[] = []
+      marks.forEach((mark, index) => {
+        const box = markBoxes[index]
         // Grid points inside the box, nearest to its center first.
         const points: [number, number][] = []
-        for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) points.push([box.x + (box.width * i) / 20, box.y + (box.height * j) / 20])
+        for (let i = 1; i < 40; i++) for (let j = 1; j < 40; j++) points.push([box.x + (box.width * i) / 40, box.y + (box.height * j) / 40])
         const cx = box.x + box.width / 2
         const cy = box.y + box.height / 2
         points.sort((a, b) => Math.hypot(a[0] - cx, a[1] - cy) - Math.hypot(b[0] - cx, b[1] - cy))
@@ -94,23 +86,22 @@ for (const source of SOURCES) {
           const sx = rect.x + (x - vb.x) * k
           const sy = rect.y + (y - vb.y) * k
           // Away from edges: the point and its neighbours hit the same object, whatever the rounding.
-          const around = [[0, 0], [-3, 0], [3, 0], [0, -3], [0, 3]].map(([dx, dy]) => targetAt(sx + dx, sy + dy))
-          if (around.every((t) => t !== null && clickedObject(state, t) === object)) {
-            const main = [...object.groups].sort((a, b) => nodes[b].width * nodes[b].height - nodes[a].width * nodes[a].height)[0]
-            const label = main !== undefined ? `#${main + 1}` : `деталь ${object.leaves[0] + 1}`
-            targets.push({ object: index, label, groups: [...object.groups].sort((a, b) => a - b), leaves: [...object.leaves].sort((a, b) => a - b), x: sx, y: sy })
+          const around = [[0, 0], [-2, 0], [2, 0], [0, -2], [0, 2]].map(([dx, dy]) => markAt(sx + dx, sy + dy))
+          if (around.every((m) => m === index)) {
+            targets.push({ label: mark.name, groups: mark.groups, leaves: mark.leaves, x: sx, y: sy })
             return
           }
         }
       })
-      return { targets, viewBox: { width: vb.width, height: vb.height } }
-    }, LARGE_SHARE)
-    expect(targets.length, 'в исходнике есть крупные объекты').toBeGreaterThan(0)
+      return { targets, total: marks.length, viewBox: { width: vb.width, height: vb.height } }
+    })
+    expect(total, 'у исходника есть разметка').toBeGreaterThan(0)
+    expect(targets.map((t) => t.label).length, 'в каждый объект можно попасть кликом').toBe(total)
 
     for (const target of targets as Target[]) {
       await page.mouse.click(target.x, target.y)
       const result = await page.evaluate(async () => {
-        const { useEditorStore, selectedParts } = await import('/src/store/editor.ts')
+        const { useEditorStore, selectedParts, selectionUnits } = await import('/src/store/editor.ts')
         const { extract, componentSvg, unionRects } = await import('/src/lib/extract.ts')
         const state = useEditorStore.getState()
         const parts = selectedParts(state)
@@ -145,6 +136,7 @@ for (const source of SOURCES) {
         }
         const bounds = unionRects(parts.bounds)
         return {
+          units: selectionUnits(state).length,
           selected: state.selection.map((item) => item.node).sort((a, b) => a - b),
           leaves: [...state.selectedLeaves].sort((a, b) => a - b),
           // Characters among the selected groups: gopher eye whites are separate shapes, two per gopher.
@@ -161,16 +153,15 @@ for (const source of SOURCES) {
       const { label } = target
       const character = result.fills.some((f) => GOPHER_BODY.includes(f))
       const where = `${source} ${label}`
-      // The click selects the whole object, nothing more.
+      // The click selects the whole object, nothing more, as one unit.
       expect(result.selected, `${where}: выбран весь объект`).toEqual(target.groups)
       expect(result.leaves, `${where}: детали объекта`).toEqual(target.leaves)
+      expect(result.units, `${where}: одна рамка`).toBe(1)
+      for (const fill of MUST_HAVE[`${source}:${label}`] ?? []) expect(result.fills, `${where}: есть ${fill}`).toContain(fill)
       // Never bigger than the illustration (s18/s19 are 5000 units wide, the others 144 or 600)
       // and not a whole scene.
       expect(result.width, `${where}: ширина`).toBeLessThanOrEqual(viewBox.width + 1e-6)
       expect(result.height, `${where}: высота`).toBeLessThanOrEqual(viewBox.height + 1e-6)
-      expect(result.width * result.height, `${where}: не больше 70 % иллюстрации`).toBeLessThanOrEqual(
-        viewBox.width * viewBox.height * MAX_ILLUSTRATION_SHARE,
-      )
       expect(result.width).toBeCloseTo(result.bounds.width, 2)
       let ok = true
       if (character && !NO_FACE.has(`${source}:${label}`)) {

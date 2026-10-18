@@ -19,6 +19,11 @@ export interface LibraryComponent {
 const db = createStore('svg-composer', 'library')
 /** Set once the demo components have been offered, so a library emptied on purpose stays empty. */
 const SEEDED_KEY = 'svg-composer-seeded'
+/**
+ * Version of the demo set. When it changes, demo components still in the library get the new
+ * markup (v2: objects from `objects.json` — the shop with its awning, the lantern with tassels).
+ */
+const SEED_VERSION = '2'
 
 /** Demo components built by `npm run seed` from the sources. */
 async function fetchSeed(): Promise<LibraryComponent[]> {
@@ -44,6 +49,17 @@ interface LibraryState {
 /** The one load in flight or done; callers that need the library wait for it. */
 let loading: Promise<void> | null = null
 
+/** Demo components in `components` replaced by the current seed; the user's name and order are kept. */
+async function refreshSeed(components: LibraryComponent[]) {
+  const seed = new Map((await fetchSeed()).map((c) => [c.id, c]))
+  const updated = components.map((c) => {
+    const fresh = seed.get(c.id)
+    return fresh ? { ...fresh, name: c.name, createdAt: c.createdAt } : c
+  })
+  await setMany(updated.filter((c) => seed.has(c.id)).map((c) => [c.id, c]), db)
+  return updated
+}
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   status: 'idle',
   error: null,
@@ -61,7 +77,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             console.warn('Демо-библиотека: не удалось загрузить', err)
           }
         }
-        localStorage.setItem(SEEDED_KEY, '1')
+        const seeded = localStorage.getItem(SEEDED_KEY)
+        if (seeded && seeded !== SEED_VERSION && components.some((c) => c.id.startsWith('seed-'))) {
+          try {
+            components = await refreshSeed(components)
+          } catch (err) {
+            console.warn('Демо-библиотека: не удалось обновить', err)
+          }
+        }
+        localStorage.setItem(SEEDED_KEY, SEED_VERSION)
         components.sort((a, b) => a.createdAt - b.createdAt)
         set({ status: 'ready', components })
       } catch (err) {
