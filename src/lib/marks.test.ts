@@ -125,3 +125,13 @@ describe('click over the markup', () => {
     expect(useEditorStore.getState().marks).toEqual([])
   })
 })
+
+describe('set', () => {
+  it('replaces the generated list with explicit objects', () => {
+    const out = applyOverrides([obj('A', [1]), obj('B', [2])], tree, [
+      { op: 'set', objects: [obj('Магазин', [0]), obj('Гофер', [3])] },
+      { op: 'rest', object: 0 },
+    ])
+    expect(out).toEqual([obj('Магазин', [0], [4]), obj('Гофер', [3])])
+  })
+})

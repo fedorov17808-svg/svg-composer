@@ -18,7 +18,7 @@ const PICKS = [
   { id: 'seed-s08-piggy', source: 's08', object: 'Копилка', name: 'Копилка' },
   { id: 'seed-s10-sage', source: 's10', object: 'Гофер-мудрец', name: 'Гофер-мудрец' },
   { id: 'seed-s11-pagoda', source: 's11', object: 'Пагода', name: 'Пагода' },
-  { id: 'seed-s12-lantern', source: 's12', object: 'Фонарь на палке', name: 'Фонарь на палке' },
+  { id: 'seed-s12-lantern', source: 's12', object: 'Фонарь', name: 'Красный фонарь' },
   { id: 'seed-s14-carp', source: 's14', object: 'Карп', name: 'Карп' },
   { id: 'seed-s16-hello', source: 's16', object: 'Облачко HELLO!', name: 'Облачко HELLO' },
   { id: 'seed-s20-tree', source: 's20', object: 'Ёлка со звездой', name: 'Ёлка со звездой' },
@@ -34,8 +34,9 @@ const EXAMPLES = [
     title: 'Гоферы на празднике',
     objects: [
       { c: 'seed-s20-tree', cx: 600, bottom: 770, h: 600 },
-      { c: 'seed-s12-lantern', left: 20, bottom: 250, h: 170, flipX: true },
-      { c: 'seed-s12-lantern', right: 1180, bottom: 250, h: 170 },
+      // Hung from the top edge of the sheet: the string starts at y = 0.
+      { c: 'seed-s12-lantern', cx: 130, bottom: 230, h: 230 },
+      { c: 'seed-s12-lantern', cx: 1070, bottom: 230, h: 230 },
       { c: 'seed-s08-pink', cx: 300, bottom: 770, h: 360 },
       { c: 'seed-s01-gopher', cx: 900, bottom: 770, h: 330, flipX: true },
       { c: 'seed-s16-hello', cx: 1010, bottom: 420, h: 120 },
@@ -56,8 +57,10 @@ const EXAMPLES = [
     title: 'Восточный сад',
     objects: [
       { c: 'seed-s11-pagoda', cx: 600, bottom: 760, h: 600 },
-      { c: 'seed-s12-lantern', left: 10, bottom: 330, h: 130, flipX: true },
-      { c: 'seed-s12-lantern', right: 1190, bottom: 330, h: 130 },
+      // Hung under the lower roof between the small roof lanterns and the posts: the string starts
+      // at the roof's underside (y ≈ 401 with this pagoda placement).
+      { c: 'seed-s12-lantern', cx: 370, bottom: 505, h: 106 },
+      { c: 'seed-s12-lantern', cx: 830, bottom: 505, h: 106 },
       { c: 'seed-s14-carp', cx: 190, bottom: 780, h: 230 },
       { c: 'seed-s14-carp', cx: 1010, bottom: 780, h: 230, flipX: true },
       { c: 'seed-s10-sage', cx: 600, bottom: 760, h: 320 },

@@ -4,7 +4,10 @@
 //   2. hand corrections from scripts/object-overrides.json (see `ObjectOverride` in src/lib/marks.ts);
 //   3. public/sources/objects.json, plus for review in scripts/out/: every object rendered alone
 //      over the faded source (sNN-K.png), a contact sheet per source (sNN.png) with what is left
-//      unmarked, and the index (sNN-index.json: boxes, parents and colors of groups and leaves).
+//      unmarked, and the index (sNN-index.json: boxes, parents and colors of groups and leaves);
+//   4. a check of every object: its box against the box of its painted pixels. A box more than
+//      10 % wider or taller than what is painted means an invisible member; such objects are listed
+//      in scripts/out/report.json and the script exits with 1.
 // Usage: npm run objects [-- s03 s05]   (with ids: render only these sources; the JSON is always full)
 import { chromium } from '@playwright/test'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -13,6 +16,8 @@ import { createServer } from 'vite'
 const PORT = 5193
 const OUT = 'scripts/out'
 const only = process.argv.slice(2)
+/** A box may be at most this much wider or taller than its painted pixels. */
+const MAX_SLACK = 1.1
 
 const overrides = JSON.parse(readFileSync('scripts/object-overrides.json', 'utf8'))
 const manifest = JSON.parse(readFileSync('public/sources/manifest.json', 'utf8'))
@@ -28,6 +33,7 @@ try {
   const sheet = await browser.newPage({ viewport: { width: 1240, height: 400 } })
 
   const result = {}
+  const report = []
   for (const { id: source, title } of manifest) {
     const data = await page.evaluate(
       async ({ source, overrides }) => {
@@ -67,7 +73,12 @@ try {
         generated.forEach((o, i) => (o.name = `Объект ${i}`))
 
         const tree = { groupParent: nodes.map((n) => n.parent), leafParent: leaves.map((l) => l.parent) }
-        const marks = applyOverrides(generated, tree, overrides ?? [])
+        let marks
+        try {
+          marks = applyOverrides(generated, tree, overrides ?? [])
+        } catch (err) {
+          throw new Error(`${source}: ${err.message} (generated ${generated.length}: ${JSON.stringify(generated)})`)
+        }
         const round = (b) => [b.x, b.y, b.width, b.height].map((v) => +v.toFixed(1))
         const index = {
           groups: nodes.map((n, i) => ({ i, parent: n.parent, box: round(n), elements: n.elementCount })),
@@ -87,6 +98,34 @@ try {
     )
     result[source] = data.marks
     console.log(`${source}: ${data.generated.length} generated → ${data.marks.length} objects`)
+
+    // Box of each object against its painted pixels.
+    const sizes = await page.evaluate(async ({ marks, source }) => {
+      const { useEditorStore, selectedParts, markState } = await import('/src/store/editor.ts')
+      const { extract, paintedBounds } = await import('/src/lib/extract.ts')
+      const state = useEditorStore.getState()
+      // Markup of this run, not the objects.json the app loaded.
+      useEditorStore.setState(markState(state, marks))
+      const out = []
+      for (const mark of marks) {
+        const editor = useEditorStore.getState()
+        if (mark.groups.length) editor.select(mark.groups[0], false)
+        else editor.selectLeaf(mark.leaves[0], false)
+        const component = extract({ ...selectedParts(useEditorStore.getState()), prefix: `check-${source}-` })
+        out.push({ name: mark.name, box: [component.width, component.height], painted: await paintedBounds(component) })
+      }
+      // The review renders below show the source without a selection frame.
+      useEditorStore.getState().clearSelection()
+      return out
+    }, { marks: data.marks, source })
+    for (const { name, box, painted } of sizes) {
+      const slack = Math.max(box[0] / painted.width, box[1] / painted.height)
+      if (!(slack <= MAX_SLACK)) {
+        const row = { source, name, box: box.map((v) => +v.toFixed(1)), painted: [painted.width, painted.height].map((v) => +v.toFixed(1)), slack: +slack.toFixed(2) }
+        report.push(row)
+        console.log(`  ! ${name}: рамка ${row.box.join('×')}, видимое ${row.painted.join('×')} (×${row.slack})`)
+      }
+    }
     if (only.length && !only.includes(source)) continue
     writeFileSync(`${OUT}/${source}-index.json`, JSON.stringify({ generated: data.generated, ...data.index }, null, 1))
 
@@ -121,6 +160,9 @@ try {
   }
   writeFileSync('public/sources/objects.json', JSON.stringify(result) + '\n')
   console.log(`public/sources/objects.json: ${Object.values(result).flat().length} objects`)
+  writeFileSync(`${OUT}/report.json`, JSON.stringify(report, null, 2) + '\n')
+  console.log(report.length ? `${report.length} objects with a box bigger than painted: ${OUT}/report.json` : 'all boxes fit what is painted')
+  if (report.length) process.exitCode = 1
 } finally {
   await browser.close()
   await server.close()

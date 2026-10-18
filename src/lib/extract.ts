@@ -287,3 +287,34 @@ export const componentSvg = (c: { markup: string; defs: string; width: number; h
   (c.defs ? `<defs>${c.defs}</defs>` : '') +
   c.markup +
   '</svg>'
+
+/** Size of the render used to measure painted bounds, by the longer side. */
+const MEASURE_SIZE = 400
+
+/**
+ * Bounds of the painted pixels of a component, in its own units (browser only). A box much bigger
+ * than this means an invisible member: a transparent full-canvas rect, a fully clipped shape.
+ */
+export async function paintedBounds(c: { markup: string; defs: string; width: number; height: number }) {
+  const img = new Image()
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(componentSvg(c))
+  await img.decode()
+  const scale = MEASURE_SIZE / Math.max(c.width, c.height)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(c.width * scale))
+  canvas.height = Math.max(1, Math.round(c.height * scale))
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -1, -1]
+  for (let y = 0; y < canvas.height; y++)
+    for (let x = 0; x < canvas.width; x++) {
+      if (data[(y * canvas.width + x) * 4 + 3] < 8) continue
+      x0 = Math.min(x0, x)
+      y0 = Math.min(y0, y)
+      x1 = Math.max(x1, x)
+      y1 = Math.max(y1, y)
+    }
+  if (x1 < 0) return { x: 0, y: 0, width: 0, height: 0 }
+  return { x: x0 / scale, y: y0 / scale, width: (x1 + 1 - x0) / scale, height: (y1 + 1 - y0) / scale }
+}

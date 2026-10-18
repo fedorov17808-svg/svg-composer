@@ -20,6 +20,8 @@ export type MarkedObjects = Record<string, MarkedObject[]>
  * A node belongs to one object only: adding it elsewhere takes it from its old object, and a node
  * inside a member group is taken by splitting that group into its children. `rest` adds everything
  * that no object holds (the biggest free groups whole) to an object, or makes a new one of it.
+ * `set` replaces the list with explicit objects: for a source where the generated list shifts
+ * whenever bounds change, indices are not stable enough to patch.
  */
 export type ObjectOverride =
   | { op: 'name'; object: number; name: string }
@@ -30,6 +32,7 @@ export type ObjectOverride =
   | { op: 'drop'; object: number }
   | { op: 'rest'; object: number }
   | { op: 'rest'; name: string }
+  | { op: 'set'; objects: MarkedObject[] }
 
 /** Parents of the source's groups and leaves (-1 under the scene root). */
 export interface Tree {
@@ -111,6 +114,7 @@ export function applyOverrides(generated: MarkedObject[], tree: Tree, overrides:
   for (const op of overrides) {
     if (op.op === 'name') get(op.object).name = op.name
     else if (op.op === 'drop') list[op.object] = null
+    else if (op.op === 'set') list.splice(0, list.length, ...op.objects.map((o) => ({ ...o, groups: [...o.groups], leaves: [...o.leaves] })))
     else if (op.op === 'rest') {
       const o = 'object' in op ? get(op.object) : { name: op.name, groups: [], leaves: [] }
       if (!('object' in op)) list.push(o)

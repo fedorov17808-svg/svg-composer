@@ -112,6 +112,34 @@ export function padZeroSide(rect: Rect, strokeWidth: number): Rect {
   return { x: rect.x - padX, y: rect.y - padY, width: rect.width + padX * 2, height: rect.height + padY * 2 }
 }
 
+/** Points sampled along an outline for the box of a rotated or skewed shape. */
+const OUTLINE_SAMPLES = 256
+
+/**
+ * Box of a shape in root units. Under rotation or skew the corners of the local box give a loose
+ * box (a tilted chopstick in s09 came out 14 % taller than painted); the outline is sampled instead,
+ * padded by half the stroke.
+ */
+function shapeRect(el: SVGGraphicsElement, m: DOMMatrix, stroke: number): Rect {
+  const box = transformRect(el.getBBox(), m)
+  if ((m.b === 0 && m.c === 0) || !(el instanceof SVGGeometryElement)) return box
+  const length = el.getTotalLength()
+  if (!(length > 0)) return box
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity]
+  for (let i = 0; i <= OUTLINE_SAMPLES; i++) {
+    const q = el.getPointAtLength((length * i) / OUTLINE_SAMPLES)
+    const r = new DOMPoint(q.x, q.y).matrixTransform(m)
+    x0 = Math.min(x0, r.x)
+    y0 = Math.min(y0, r.y)
+    x1 = Math.max(x1, r.x)
+    y1 = Math.max(y1, r.y)
+  }
+  const pad = stroke / 2
+  const sampled = { x: x0 - pad, y: y0 - pad, width: x1 - x0 + stroke, height: y1 - y0 + stroke }
+  // Never bigger than the corner box: sampling only tightens it.
+  return intersectLoose(sampled, box) ?? box
+}
+
 /** Stroke width of a shape in root units, 0 when it has no stroke. */
 function strokeWidthOf(el: SVGGraphicsElement, m: DOMMatrix) {
   const style = getComputedStyle(el)
@@ -182,7 +210,8 @@ export function collectGroups(svg: SVGSVGElement): {
         Object.assign(nodes[index], rect)
       } else {
         const m = toRoot.multiply(el.getCTM() ?? new DOMMatrix())
-        const raw = padZeroSide(transformRect(el.getBBox(), m), strokeWidthOf(el, m))
+        const stroke = strokeWidthOf(el, m)
+        const raw = padZeroSide(shapeRect(el, m, stroke), stroke)
         const visible = intersectLoose(raw, clip)
         leaves.push({ parent, tag: el.tagName, order: order++, ...(visible ?? raw), visible: visible !== null })
         leafElements.push(el)

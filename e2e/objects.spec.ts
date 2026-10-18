@@ -19,11 +19,13 @@ const MUST_HAVE: Record<string, string[]> = {
   's03:Магазин': ['#ffebe6', '#be2800'],
   's03:Гофер': ['#d6c295'],
   's05:Гофер со спины': ['#d6c295'],
-  's12:Фонарь на палке': ['#b86400', '#dc1c4b'],
+  's12:Фонарь': ['#dc1c4b', '#ffa400'],
+  's12:Палка': ['#b86400'],
 }
-/** Fills that must not be in an object: the pole stays with the lantern, not with the gopher holding it. */
+/** Fills that must not be in an object: the pole is neither in the gopher holding it nor in the lantern. */
 const MUST_NOT: Record<string, string[]> = {
   's12:Гофер': ['#b86400'],
+  's12:Фонарь': ['#b86400'],
 }
 
 interface Target {
@@ -107,7 +109,7 @@ for (const source of SOURCES) {
       await page.mouse.click(target.x, target.y)
       const result = await page.evaluate(async () => {
         const { useEditorStore, selectedParts, selectionUnits } = await import('/src/store/editor.ts')
-        const { extract, componentSvg, unionRects } = await import('/src/lib/extract.ts')
+        const { extract, componentSvg, unionRects, paintedBounds } = await import('/src/lib/extract.ts')
         const state = useEditorStore.getState()
         const parts = selectedParts(state)
         const component = extract({ ...parts, prefix: 'otest-' })
@@ -140,8 +142,10 @@ for (const source of SOURCES) {
           else if (r <= 60 && g <= 60 && b <= 60) dark++
         }
         const bounds = unionRects(parts.bounds)
+        const visible = await paintedBounds(component)
         return {
           units: selectionUnits(state).length,
+          visible: { width: visible.width, height: visible.height },
           selected: state.selection.map((item) => item.node).sort((a, b) => a - b),
           leaves: [...state.selectedLeaves].sort((a, b) => a - b),
           // Characters among the selected groups: gopher eye whites are separate shapes, two per gopher.
@@ -169,6 +173,9 @@ for (const source of SOURCES) {
       expect(result.width, `${where}: ширина`).toBeLessThanOrEqual(viewBox.width + 1e-6)
       expect(result.height, `${where}: высота`).toBeLessThanOrEqual(viewBox.height + 1e-6)
       expect(result.width).toBeCloseTo(result.bounds.width, 2)
+      // No invisible member: the box is at most 10 % wider or taller than the painted pixels.
+      expect(result.width, `${where}: ширина рамки ≈ видимой`).toBeLessThanOrEqual(result.visible.width * 1.1)
+      expect(result.height, `${where}: высота рамки ≈ видимой`).toBeLessThanOrEqual(result.visible.height * 1.1)
       let ok = true
       if (character && !NO_FACE.has(`${source}:${label}`)) {
         // Not a bare body: several fills, eye whites and dark pupils.

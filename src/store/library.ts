@@ -22,9 +22,9 @@ const SEEDED_KEY = 'svg-composer-seeded'
 /**
  * Version of the demo set. When it changes, demo components still in the library get the new
  * markup (v2: objects from `objects.json` — the shop with its awning, the lantern with tassels;
- * v3: the lantern with its pole, without the gopher's paw).
+ * v3: the lantern with its pole; v4: the lantern alone, without the pole).
  */
-const SEED_VERSION = '3'
+const SEED_VERSION = '4'
 
 /** Demo components built by `npm run seed` from the sources. */
 async function fetchSeed(): Promise<LibraryComponent[]> {
