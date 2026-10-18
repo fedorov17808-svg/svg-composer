@@ -18,14 +18,14 @@ const PICKS = [
   { id: 'seed-s08-piggy', source: 's08', object: 'Копилка', name: 'Копилка' },
   { id: 'seed-s10-sage', source: 's10', object: 'Гофер-мудрец', name: 'Гофер-мудрец' },
   { id: 'seed-s11-pagoda', source: 's11', object: 'Пагода', name: 'Пагода' },
-  { id: 'seed-s12-lantern', source: 's12', object: 'Фонарь', name: 'Красный фонарь' },
+  { id: 'seed-s12-lantern', source: 's12', object: 'Фонарь на палке', name: 'Фонарь на палке' },
   { id: 'seed-s14-carp', source: 's14', object: 'Карп', name: 'Карп' },
   { id: 'seed-s16-hello', source: 's16', object: 'Облачко HELLO!', name: 'Облачко HELLO' },
   { id: 'seed-s20-tree', source: 's20', object: 'Ёлка со звездой', name: 'Ёлка со звездой' },
 ]
 
 /**
- * Objects by center x (or left edge), bottom y and height on a 1200×800 canvas, bottom to top.
+ * Objects by center x (or left/right edge), bottom y and height on a 1200×800 canvas, bottom to top.
  * `name` overrides the component name (it becomes the `<g id>` in the SVG).
  */
 const EXAMPLES = [
@@ -34,8 +34,8 @@ const EXAMPLES = [
     title: 'Гоферы на празднике',
     objects: [
       { c: 'seed-s20-tree', cx: 600, bottom: 770, h: 600 },
-      { c: 'seed-s12-lantern', cx: 150, bottom: 260, h: 190 },
-      { c: 'seed-s12-lantern', cx: 1050, bottom: 260, h: 190 },
+      { c: 'seed-s12-lantern', left: 20, bottom: 250, h: 170, flipX: true },
+      { c: 'seed-s12-lantern', right: 1180, bottom: 250, h: 170 },
       { c: 'seed-s08-pink', cx: 300, bottom: 770, h: 360 },
       { c: 'seed-s01-gopher', cx: 900, bottom: 770, h: 330, flipX: true },
       { c: 'seed-s16-hello', cx: 1010, bottom: 420, h: 120 },
@@ -55,12 +55,12 @@ const EXAMPLES = [
     id: 'garden',
     title: 'Восточный сад',
     objects: [
-      { c: 'seed-s11-pagoda', cx: 600, bottom: 760, h: 700 },
-      { c: 'seed-s12-lantern', cx: 170, bottom: 360, h: 220 },
-      { c: 'seed-s12-lantern', cx: 1030, bottom: 360, h: 220 },
+      { c: 'seed-s11-pagoda', cx: 600, bottom: 760, h: 600 },
+      { c: 'seed-s12-lantern', left: 10, bottom: 330, h: 130, flipX: true },
+      { c: 'seed-s12-lantern', right: 1190, bottom: 330, h: 130 },
       { c: 'seed-s14-carp', cx: 190, bottom: 780, h: 230 },
       { c: 'seed-s14-carp', cx: 1010, bottom: 780, h: 230, flipX: true },
-      { c: 'seed-s10-sage', cx: 600, bottom: 760, h: 360 },
+      { c: 'seed-s10-sage', cx: 600, bottom: 760, h: 320 },
     ],
   },
 ]
@@ -112,7 +112,7 @@ try {
             id: `${example.id}-${i + 1}`,
             componentId: c.id,
             name: c.name,
-            x: +(o.left ?? o.cx - (c.width * scale) / 2).toFixed(2),
+            x: +(o.left ?? (o.right !== undefined ? o.right - c.width * scale : o.cx - (c.width * scale) / 2)).toFixed(2),
             y: +(o.bottom - o.h).toFixed(2),
             scale: +scale.toFixed(4),
             rotation: 0,

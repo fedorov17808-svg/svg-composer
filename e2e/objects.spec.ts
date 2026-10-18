@@ -19,6 +19,11 @@ const MUST_HAVE: Record<string, string[]> = {
   's03:Магазин': ['#ffebe6', '#be2800'],
   's03:Гофер': ['#d6c295'],
   's05:Гофер со спины': ['#d6c295'],
+  's12:Фонарь на палке': ['#b86400', '#dc1c4b'],
+}
+/** Fills that must not be in an object: the pole stays with the lantern, not with the gopher holding it. */
+const MUST_NOT: Record<string, string[]> = {
+  's12:Гофер': ['#b86400'],
 }
 
 interface Target {
@@ -158,6 +163,7 @@ for (const source of SOURCES) {
       expect(result.leaves, `${where}: детали объекта`).toEqual(target.leaves)
       expect(result.units, `${where}: одна рамка`).toBe(1)
       for (const fill of MUST_HAVE[`${source}:${label}`] ?? []) expect(result.fills, `${where}: есть ${fill}`).toContain(fill)
+      for (const fill of MUST_NOT[`${source}:${label}`] ?? []) expect(result.fills, `${where}: нет ${fill}`).not.toContain(fill)
       // Never bigger than the illustration (s18/s19 are 5000 units wide, the others 144 or 600)
       // and not a whole scene.
       expect(result.width, `${where}: ширина`).toBeLessThanOrEqual(viewBox.width + 1e-6)

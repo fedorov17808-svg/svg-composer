@@ -34,5 +34,5 @@ test('старые демо-компоненты обновляются до н�
   expect(shop?.markup).toBe(fresh.markup)
   // The shop with its sign and awning: their colors are in the markup.
   expect(shop?.markup).toContain('#ffebe6')
-  expect(await page.evaluate(() => localStorage.getItem('svg-composer-seeded'))).toBe('2')
+  expect(await page.evaluate(() => localStorage.getItem('svg-composer-seeded'))).toBe('3')
 })

@@ -63,9 +63,10 @@
     {"op": "rest", "object": 0}
   ],
   "s12": [
-    {"op": "merge", "objects": [0, 1], "name": "Гофер с шестом"},
-    {"op": "merge", "objects": [2, 3, 4, 5, 6, 7, 8, 9, 10], "name": "Фонарь"},
-    {"op": "rest", "object": 2}
+    {"op": "add", "object": 0, "groups": [32]},
+    {"op": "name", "object": 0, "name": "Гофер"},
+    {"op": "merge", "objects": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "name": "Фонарь на палке"},
+    {"op": "rest", "object": 1}
   ],
   "s13": [
     {"op": "name", "object": 0, "name": "Гофер с пандой"},
