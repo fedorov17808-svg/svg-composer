@@ -5,7 +5,7 @@
 компонент и собираешь из компонентов разных исходников новую сцену. Результат — чистый SVG, который
 открывается в Figma, Illustrator и браузере с отдельными слоями.
 
-**Демо:** _ссылка появится после деплоя_
+**Демо:** https://svg-composer.vercel.app
 
 Стек: Vite 8, React 19, TypeScript 6, Zustand 5, IndexedDB (`idb-keyval`), SVGO 4, Vitest, Playwright.
 Сервера нет — всё работает в браузере.
