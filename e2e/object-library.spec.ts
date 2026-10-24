@@ -30,7 +30,7 @@ for (const width of [1024, 1440]) {
     await expect(tiles).toHaveCount(10)
     await expect(page.locator('.library-tile .library-name')).toHaveText(NAMES)
     await expect(page.getByRole('radio', { name: 'Размер L' })).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByRole('radio', { name: 'Главный' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('radiogroup', { name: 'Состояние' }).getByRole('radio', { name: 'Главный' })).toHaveAttribute('aria-checked', 'true')
 
     // Header on one line, every control inside the window.
     const header = (await page.locator('.app-header').boundingBox())!
@@ -44,7 +44,7 @@ for (const width of [1024, 1440]) {
     for (const size of ['L', 'S']) {
       for (const state of ['Главный', 'Фоновый']) {
         await page.getByRole('radio', { name: `Размер ${size}` }).click()
-        await page.getByRole('radio', { name: state }).click()
+        await page.getByRole('radiogroup', { name: 'Состояние' }).getByRole('radio', { name: state }).click()
         const drawn = await page.$$eval('.library-tile img', (imgs) =>
           Promise.all((imgs as HTMLImageElement[]).map((img) => img.decode().then(() => img.naturalWidth > 0 && img.naturalHeight > 0))),
         )
@@ -62,7 +62,7 @@ for (const width of [1024, 1440]) {
       ['S', 'Фоновый', 'lib-S-bg-book'],
     ]) {
       await page.getByRole('radio', { name: `Размер ${size}` }).click()
-      await page.getByRole('radio', { name: state }).click()
+      await page.getByRole('radiogroup', { name: 'Состояние' }).getByRole('radio', { name: state }).click()
       await book.click()
       expect((await objects(page)).at(-1)).toMatchObject({ componentId: id, name: 'Книга' })
     }

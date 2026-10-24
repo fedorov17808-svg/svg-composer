@@ -56,6 +56,22 @@ describe('project file', () => {
     expect(open).toThrow(message)
   })
 
+  it('keeps the color scheme and the color variants', () => {
+    const palette = { id: 'custom-abc', name: 'Морская', background: ['#E0F0FF', '#A0C8F0', '#3366CC', '#101820'], objects: ['#FFD166', '#EF476F', '#06D6A0', '#FFFFFF'] }
+    const objects = [{ ...OBJECTS[0], variant: 4 }]
+    const project = parseProject(serializeProject(createProject({ width: 10, height: 10 }, objects, LIBRARY, palette)))
+    expect(project.palette).toEqual(palette)
+    expect(project.objects[0].variant).toBe(4)
+    // Files saved before v2 have no scheme.
+    expect(parseProject(saved()).palette).toBeUndefined()
+    const bad = JSON.parse(serializeProject(createProject({ width: 10, height: 10 }, objects, LIBRARY, palette)))
+    bad.palette.objects[1] = 'pink'
+    expect(() => parseProject(JSON.stringify(bad))).toThrow(new ProjectError('Цветовая схема: Цвет объектов 2 — «pink» не hex-цвет. Нужно #RRGGBB, например #D7CDF5.'))
+    bad.palette.objects[1] = '#EF476F'
+    bad.objects[0].variant = 6
+    expect(() => parseProject(JSON.stringify(bad))).toThrow('поле «variant»')
+  })
+
   it('drops unknown fields', () => {
     const project = broken((d) => (d.objects[0].evil = '<script>'))()
     expect(project.objects[0]).not.toHaveProperty('evil')

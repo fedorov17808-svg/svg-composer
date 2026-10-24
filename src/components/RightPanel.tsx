@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react'
 import { normalizeAngle, type CanvasObject } from '../lib/canvas'
 import { componentSvg, extract, unionRects } from '../lib/extract'
+import { parseVersionId, versionId, type ObjectState } from '../lib/libraryObjects'
+import { VARIANTS } from '../lib/palette'
 import { defaultName, uniqueName } from '../lib/names'
 import { useCanvasStore } from '../store/canvas'
 import { selectedParts, selectionUnits, useEditorStore, wholeMarkName } from '../store/editor'
 import { useLibraryStore } from '../store/library'
+import { OBJECT_STATES, STATE_LABELS } from '../store/objectLibrary'
 import { useSourcesStore } from '../store/sources'
 import { useUiStore } from '../store/ui'
 import { LayersPanel } from './LayersPanel'
 import { NumberField } from './NumberField'
+import { PaletteForm } from './PaletteForm'
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('ru-RU')
 
@@ -229,6 +233,52 @@ function AddToLibrary() {
   )
 }
 
+/** Main ↔ background version and the order of the accent colors of a library object. */
+function VersionControls({ obj }: { obj: CanvasObject }) {
+  const version = parseVersionId(obj.componentId)
+  const components = useLibraryStore((s) => s.components)
+  if (!version) return null
+  const locked = obj.locked === true
+  const variant = obj.variant ?? 0
+
+  const setState = (state: ObjectState) => {
+    const from = components.find((c) => c.id === obj.componentId)
+    const to = components.find((c) => c.id === versionId(version.objectId, version.size, state))
+    if (from && to) useCanvasStore.getState().swapComponent(obj.id, from, to)
+  }
+
+  return (
+    <div className="version-controls">
+      <div className="segmented" role="radiogroup" aria-label="Версия объекта">
+        {OBJECT_STATES.map((state) => (
+          <button
+            key={state}
+            role="radio"
+            aria-checked={version.state === state}
+            disabled={locked}
+            className={version.state === state ? 'segmented-item segmented-active' : 'segmented-item'}
+            onClick={() => setState(state)}
+          >
+            {STATE_LABELS[state]}
+          </button>
+        ))}
+      </div>
+      {version.state === 'main' ? (
+        <button
+          className="btn"
+          disabled={locked}
+          title="Переставить акцентные цвета объектов внутри палитры; белый и цвета фона не меняются"
+          onClick={() => useCanvasStore.getState().update(obj.id, { variant: (variant + 1) % VARIANTS.length })}
+        >
+          Вариант цвета {variant + 1} из {VARIANTS.length}
+        </button>
+      ) : (
+        <p className="muted version-note">Фоновый объект — только цвета фона.</p>
+      )}
+    </div>
+  )
+}
+
 function ObjectProperties() {
   const obj = useCanvasStore((s) => s.objects.find((o) => o.id === s.selectedId))
   const update = useCanvasStore((s) => s.update)
@@ -237,29 +287,32 @@ function ObjectProperties() {
   const edit = (field: string, patch: Partial<CanvasObject>) => update(obj.id, patch, `${field}:${obj.id}`)
   const locked = obj.locked === true
   return (
-    <div className="prop-grid">
-      <NumberField label="X" value={obj.x} live disabled={locked} onCommit={(x) => edit('x', { x })} />
-      <NumberField label="Y" value={obj.y} live disabled={locked} onCommit={(y) => edit('y', { y })} />
-      <NumberField
-        label="Масштаб"
-        suffix="%"
-        value={obj.scale * 100}
-        min={1}
-        max={2000}
-        live
-        disabled={locked}
-        onCommit={(percent) => edit('scale', { scale: percent / 100 })}
-      />
-      <NumberField
-        label="Угол"
-        suffix="°"
-        value={obj.rotation}
-        step={15}
-        live
-        disabled={locked}
-        onCommit={(rotation) => edit('rotation', { rotation: normalizeAngle(rotation) })}
-      />
-    </div>
+    <>
+      <VersionControls obj={obj} />
+      <div className="prop-grid">
+        <NumberField label="X" value={obj.x} live disabled={locked} onCommit={(x) => edit('x', { x })} />
+        <NumberField label="Y" value={obj.y} live disabled={locked} onCommit={(y) => edit('y', { y })} />
+        <NumberField
+          label="Масштаб"
+          suffix="%"
+          value={obj.scale * 100}
+          min={1}
+          max={2000}
+          live
+          disabled={locked}
+          onCommit={(percent) => edit('scale', { scale: percent / 100 })}
+        />
+        <NumberField
+          label="Угол"
+          suffix="°"
+          value={obj.rotation}
+          step={15}
+          live
+          disabled={locked}
+          onCommit={(rotation) => edit('rotation', { rotation: normalizeAngle(rotation) })}
+        />
+      </div>
+    </>
   )
 }
 
@@ -267,9 +320,16 @@ export function RightPanel() {
   const isSourceMode = useUiStore((s) => s.workspaceMode === 'source')
   const isSourceOpen = useEditorStore((s) => s.openSourceId !== null)
   const count = useEditorStore((s) => s.selection.length + s.selectedLeaves.length)
+  const paletteForm = useUiStore((s) => s.paletteForm)
 
   return (
     <aside className="panel panel-right" aria-label="Слои и свойства">
+      {paletteForm && (
+        <section className="panel-section">
+          <h2 className="panel-heading">Новая палитра</h2>
+          <PaletteForm />
+        </section>
+      )}
       {isSourceMode && isSourceOpen && (
         <section className="panel-section">
           <h2 className="panel-heading">Выделение{count > 1 ? ` (${count})` : ''}</h2>

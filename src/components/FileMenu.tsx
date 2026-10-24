@@ -3,6 +3,7 @@ import { exportFileName, exportSvg } from '../lib/exportSvg'
 import { createProject, parseProject, ProjectError, serializeProject } from '../lib/project'
 import { useCanvasStore } from '../store/canvas'
 import { useLibraryStore } from '../store/library'
+import { activePalette, findPalette, paintObject, usePalettesStore } from '../store/palettes'
 import { assetUrl } from '../store/sources'
 import { useUiStore } from '../store/ui'
 import { Dialog } from './Dialog'
@@ -26,10 +27,13 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** The composition as the canvas shows it: library objects and the background in the color scheme. */
 function compositionSvg() {
   const { size, objects } = useCanvasStore.getState()
   const components = new Map(useLibraryStore.getState().components.map((c) => [c.id, c]))
-  return { svg: exportSvg({ size, objects, components }), size }
+  const palette = activePalette()
+  const svg = exportSvg({ size, objects, components, paint: (obj, c) => paintObject(obj, c, palette), background: palette.background[0] })
+  return { svg, size }
 }
 
 const hasVisible = () => {
@@ -99,7 +103,9 @@ export function FileMenu() {
 
   const saveProject = () => {
     const { size, objects } = useCanvasStore.getState()
-    const project = createProject(size, objects, useLibraryStore.getState().components)
+    // The saved scheme, not a palette still being edited in the form.
+    const palette = findPalette(usePalettesStore.getState(), useCanvasStore.getState().paletteId)
+    const project = createProject(size, objects, useLibraryStore.getState().components, palette)
     download(new Blob([serializeProject(project)], { type: 'application/json' }), exportFileName('json', new Date(), 'project'))
   }
 
@@ -108,7 +114,9 @@ export function FileMenu() {
     try {
       const project = parseProject(await text())
       await useLibraryStore.getState().addMissing(project.components)
-      useCanvasStore.getState().replace(project.canvas, project.objects)
+      // A palette of the user that is not here yet comes with the project.
+      if (project.palette) await usePalettesStore.getState().addMissing(project.palette)
+      useCanvasStore.getState().replace(project.canvas, project.objects, project.palette?.id)
       useUiStore.getState().setWorkspaceMode('composition')
       useUiStore.getState().showToast(`${kind} «${name}» открыт`)
     } catch (err) {

@@ -1,5 +1,6 @@
 import type { LibraryComponent } from '../store/library'
 import type { CanvasObject, Size } from './canvas'
+import { PaletteError, validatePalette, VARIANTS, type Palette } from './palette'
 
 export const PROJECT_FORMAT = 'svg-composer-project'
 export const PROJECT_VERSION = 1
@@ -13,12 +14,14 @@ export interface Project {
   /** Bottom to top. */
   objects: CanvasObject[]
   components: LibraryComponent[]
+  /** Color scheme of the composition; missing in files saved before v2 (then the base scheme). */
+  palette?: Palette
 }
 
 /** A file that cannot be opened; the message is for the user. */
 export class ProjectError extends Error {}
 
-export function createProject(size: Size, objects: CanvasObject[], library: LibraryComponent[]): Project {
+export function createProject(size: Size, objects: CanvasObject[], library: LibraryComponent[], palette?: Palette): Project {
   const used = new Set(objects.map((o) => o.componentId))
   return {
     format: PROJECT_FORMAT,
@@ -27,6 +30,7 @@ export function createProject(size: Size, objects: CanvasObject[], library: Libr
     canvas: { width: size.width, height: size.height },
     objects: objects.map((o) => ({ ...o })),
     components: library.filter((c) => used.has(c.id)),
+    ...(palette ? { palette: { id: palette.id, name: palette.name, background: [...palette.background], objects: [...palette.objects] } } : {}),
   }
 }
 
@@ -52,6 +56,7 @@ const OBJECT_FIELDS: Record<keyof CanvasObject, Check> = {
   flipX: isBoolean,
   hidden: optional(isBoolean),
   locked: optional(isBoolean),
+  variant: optional((v) => Number.isInteger(v) && (v as number) >= 0 && (v as number) < VARIANTS.length),
 }
 
 const COMPONENT_FIELDS: Record<keyof LibraryComponent, Check> = {
@@ -112,6 +117,16 @@ export function parseProject(text: string): Project {
     checkMarkup(component, `Компонент «${component.name}»`)
     return component
   })
+  let palette: Palette | undefined
+  if (data.palette !== undefined) {
+    try {
+      const checked = validatePalette(data.palette, 'Цветовая схема')
+      if (!isId(checked.id)) throw new PaletteError('Цветовая схема: нет id.')
+      palette = checked as Palette
+    } catch (err) {
+      throw err instanceof PaletteError ? new ProjectError(err.message) : err
+    }
+  }
   const componentIds = new Set(components.map((c) => c.id))
   const objectIds = new Set<string>()
   const objects = data.objects.map((o, i) => {
@@ -130,5 +145,6 @@ export function parseProject(text: string): Project {
     canvas,
     objects,
     components,
+    ...(palette ? { palette } : {}),
   }
 }

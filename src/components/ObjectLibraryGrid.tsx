@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { componentSvg } from '../lib/extract'
 import { COMPONENT_DRAG_TYPE, useCanvasStore } from '../store/canvas'
 import { useLibraryStore } from '../store/library'
+import { paintObject, useActivePalette } from '../store/palettes'
 import {
   OBJECT_SIZES,
   OBJECT_STATES,
@@ -33,7 +34,10 @@ function ObjectTile({ object }: { object: LibraryObject }) {
   const size = useObjectLibraryStore((s) => s.size)
   const state = useObjectLibraryStore((s) => s.state)
   const id = versionId(object.id, size, state)
-  const component = useLibraryStore((s) => s.components.find((c) => c.id === id))
+  const stored = useLibraryStore((s) => s.components.find((c) => c.id === id))
+  // Previews in the composition's scheme, as the object will look when placed.
+  const palette = useActivePalette()
+  const component = stored && paintObject({}, stored, palette)
   // A data URL isolates each preview, so ids never clash with the canvas or other tiles.
   const src = useMemo(() => component && `data:image/svg+xml;charset=utf-8,${encodeURIComponent(componentSvg(component))}`, [component])
   if (!component) return null
@@ -44,7 +48,7 @@ function ObjectTile({ object }: { object: LibraryObject }) {
       draggable
       data-object={object.id}
       onDragStart={(e) => {
-        e.dataTransfer.setData(COMPONENT_DRAG_TYPE, component.id)
+        e.dataTransfer.setData(COMPONENT_DRAG_TYPE, id)
         e.dataTransfer.effectAllowed = 'copy'
         const img = e.currentTarget.querySelector('img')
         if (img) e.dataTransfer.setDragImage(img, img.width / 2, img.height / 2)
@@ -52,7 +56,7 @@ function ObjectTile({ object }: { object: LibraryObject }) {
     >
       <button
         className="library-preview"
-        onClick={() => useCanvasStore.getState().add(component)}
+        onClick={() => useCanvasStore.getState().add(stored!)}
         title={`${object.name}: добавить в центр холста или перетащить на холст`}
       >
         <img src={src} alt={object.name} draggable={false} />

@@ -60,7 +60,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   await expect(tiles).toHaveCount(10)
   for (const pick of PICKS) {
     await page.getByRole('radio', { name: pick.size }).click()
-    await page.getByRole('radio', { name: pick.state }).click()
+    await page.getByRole('radiogroup', { name: 'Состояние' }).getByRole('radio', { name: pick.state }).click()
     await page.locator(`.library-tile[data-object="${pick.object}"] .library-preview`).click()
   }
 
@@ -119,7 +119,8 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   }, svg.text)
   expect(check.parseError).toBeNull()
   expect([check.viewBox, check.width, check.height]).toEqual(['0 0 1200 800', '1200', '800'])
-  expect(check.background).toBe('#fff')
+  // bg1 of the scheme, the lilac one by default.
+  expect(check.background).toBe('#D7CDF5')
   // The library objects have no definitions and no references.
   expect(check.defs).toBe(0)
   expect(check.duplicates).toEqual([])
@@ -179,7 +180,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
     await info.attach(name, { path: info.outputPath(`${name}.png`), contentType: 'image/png' })
   }
   const size = { width: SIZE.width * ZOOM, height: SIZE.height * ZOOM }
-  const { painted, different } = await diff(page.context().browser()!, canvasPng.toString('base64'), filePng.toString('base64'), size)
+  const { painted, different } = await diff(page.context().browser()!, canvasPng.toString('base64'), filePng.toString('base64'), size, '#D7CDF5')
   info.annotations.push({ type: 'различие', description: `${((different / painted) * 100).toFixed(3)} % из ${painted} px` })
   console.log(`[${info.project.name}] различие ${((different / painted) * 100).toFixed(3)} % из ${painted} px`)
   // Line art on white: about 15 000 non-white pixels at 50 %.

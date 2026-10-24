@@ -21,6 +21,8 @@ export interface CanvasObject {
   hidden?: boolean
   /** Locked objects can be selected but not moved, scaled, rotated or flipped. */
   locked?: boolean
+  /** Order of the accent colors of a library object (index in `VARIANTS`); 0 or missing — as drawn. */
+  variant?: number
 }
 
 export interface Size {

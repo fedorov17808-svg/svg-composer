@@ -20,7 +20,51 @@ const store = () => useCanvasStore.getState()
 const order = () => store().objects.map((o) => o.name).join(' ')
 
 beforeEach(() => {
-  useCanvasStore.setState({ objects: [], selectedId: null, history: emptyHistory(), gesture: null })
+  useCanvasStore.setState({ objects: [], selectedId: null, history: emptyHistory(), gesture: null, paletteId: 'lilac', size: { width: 1200, height: 800 } })
+})
+
+const version = (id: string, width: number, height: number): LibraryComponent => ({ ...component(id), sourceId: 'library', width, height })
+
+describe('library objects', () => {
+  it('come in the proportions of the sheet; an S object as large as its L one', () => {
+    store().add(version('lib-L-main-book', 1445.9, 976.67), { x: 600, y: 400 })
+    store().add(version('lib-L-main-coin', 286.68, 146.42), { x: 600, y: 400 })
+    store().add(version('lib-S-main-book', 722.96, 488.35), { x: 600, y: 400 })
+    const [book, coin, small] = store().objects
+    expect(book.scale).toBeCloseTo(0.4)
+    expect(coin.scale).toBe(book.scale)
+    expect(small.scale).toBeCloseTo(0.8)
+    // Gopher pieces keep the old rule: the longer side is 35 % of the canvas height.
+    store().add(component('g'), { x: 0, y: 0 })
+    expect(store().objects[3].scale).toBeCloseTo((800 * 0.35) / 100)
+  })
+
+  it('swap main and background around the same center, as one undo step', () => {
+    const main = version('lib-L-main-lamp', 945.96, 1129)
+    const bg = version('lib-L-bg-lamp', 945.96, 1128.99)
+    store().add(main, { x: 500, y: 300 })
+    const id = store().selectedId!
+    store().update(id, { rotation: 30, flipX: true, scale: 0.7, variant: 2 })
+    const before = store().objects[0]
+    store().swapComponent(id, main, bg)
+    const after = store().objects[0]
+    expect(after).toMatchObject({ componentId: bg.id, rotation: 30, flipX: true, scale: 0.7, variant: 2 })
+    expect(after.x + (bg.width * after.scale) / 2).toBeCloseTo(before.x + (main.width * before.scale) / 2, 6)
+    expect(after.y + (bg.height * after.scale) / 2).toBeCloseTo(before.y + (main.height * before.scale) / 2, 6)
+    store().undo()
+    expect(store().objects[0]).toEqual(before)
+  })
+
+  it('the color scheme is a composition change: undo brings it back', () => {
+    store().setPalette('mint')
+    expect(store().paletteId).toBe('mint')
+    store().setPalette('mint')
+    expect(store().history.past).toHaveLength(1)
+    store().undo()
+    expect(store().paletteId).toBe('lilac')
+    store().redo()
+    expect(store().paletteId).toBe('mint')
+  })
 })
 
 describe('canvas editing with undo', () => {

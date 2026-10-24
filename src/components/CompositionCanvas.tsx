@@ -12,6 +12,7 @@ import {
 } from '../lib/canvas'
 import { COMPONENT_DRAG_TYPE, MAX_ZOOM, MIN_ZOOM, useCanvasStore, type View } from '../store/canvas'
 import { useLibraryStore, type LibraryComponent } from '../store/library'
+import { paintObject, useActivePalette } from '../store/palettes'
 
 const HANDLE = 8
 const ROTATE_OFFSET = 24
@@ -106,6 +107,7 @@ export function CompositionCanvas() {
   const { size, objects, selectedId, stage, view, select, update, add, setStage } = useCanvasStore()
   const components = useLibraryStore((s) => s.components)
   const loadLibrary = useLibraryStore((s) => s.load)
+  const palette = useActivePalette()
 
   const byId = useMemo(() => new Map(components.map((c) => [c.id, c])), [components])
   const visible = objects.filter((o) => byId.has(o.componentId) && !o.hidden)
@@ -356,9 +358,9 @@ export function CompositionCanvas() {
           preserveAspectRatio="xMinYMin meet"
         >
           <defs dangerouslySetInnerHTML={defs} />
-          <rect className="canvas-page" width={size.width} height={size.height} />
+          <rect className="canvas-page" width={size.width} height={size.height} style={{ fill: palette.background[0] }} />
           {visible.map((obj) => (
-            <CanvasItem key={obj.id} obj={obj} component={byId.get(obj.componentId)!} />
+            <CanvasItem key={obj.id} obj={obj} component={paintObject(obj, byId.get(obj.componentId)!, palette)} />
           ))}
         </svg>
       )}

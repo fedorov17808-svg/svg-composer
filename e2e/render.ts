@@ -78,11 +78,12 @@ async function render(browser: Browser, svg: string, prepare: string, arg: unkno
   return { png: png.toString('base64'), size }
 }
 
-/** Share of differing pixels among pixels painted in either image. */
-export async function diff(browser: Browser, a: string, b: string, size: { width: number; height: number }) {
+/** Share of differing pixels among pixels painted in either image; `background` ("#RRGGBB") counts as unpainted, like white. */
+export async function diff(browser: Browser, a: string, b: string, size: { width: number; height: number }, background = '#FFFFFF') {
   const page = await browser.newPage()
   const result = await page.evaluate(
-    async ({ a, b, size }) => {
+    async ({ a, b, size, background }) => {
+      const bg = [1, 3, 5].map((k) => parseInt(background.slice(k, k + 2), 16))
       const load = (b64: string) =>
         new Promise<HTMLImageElement>((resolve, reject) => {
           const img = new Image()
@@ -104,7 +105,8 @@ export async function diff(browser: Browser, a: string, b: string, size: { width
       let painted = 0
       let different = 0
       for (let i = 0; i < pa.length; i += 4) {
-        const white = (p: Uint8ClampedArray) => p[i] > 245 && p[i + 1] > 245 && p[i + 2] > 245
+        const white = (p: Uint8ClampedArray) =>
+          (p[i] > 245 && p[i + 1] > 245 && p[i + 2] > 245) || Math.max(...bg.map((c, k) => Math.abs(p[i + k] - c))) <= 10
         if (white(pa) && white(pb)) continue
         painted++
         const d = Math.max(Math.abs(pa[i] - pb[i]), Math.abs(pa[i + 1] - pb[i + 1]), Math.abs(pa[i + 2] - pb[i + 2]))
@@ -112,7 +114,7 @@ export async function diff(browser: Browser, a: string, b: string, size: { width
       }
       return { painted, different }
     },
-    { a, b, size },
+    { a, b, size, background },
   )
   await page.close()
   return result

@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { flippedX, type CanvasObject, type Point, type Size } from '../lib/canvas'
 import { emptyHistory, mapHistory, record, redo, undo, type History } from '../lib/history'
 import { placeNextTo, reorder, type LayerMove } from '../lib/layers'
+import { nativeScale } from '../lib/libraryObjects'
+import { BASE_PALETTE } from '../lib/palette'
 import type { LibraryComponent } from './library'
 
 const STAGE_PADDING = 24
@@ -21,11 +23,13 @@ export interface View {
 export const DUPLICATE_OFFSET = 20
 
 /** What undo/redo restores. Selection comes back too, so undo shows what it changed. */
-export type Snapshot = Pick<CanvasState, 'objects' | 'size' | 'selectedId'>
+export type Snapshot = Pick<CanvasState, 'objects' | 'size' | 'selectedId' | 'paletteId'>
 
 interface CanvasState {
   size: Size
   objects: CanvasObject[]
+  /** Color scheme of the whole composition: objects and the canvas background. */
+  paletteId: string
   selectedId: string | null
   stage: Size
   view: View
@@ -36,6 +40,12 @@ interface CanvasState {
   gesture: Snapshot | null
   /** Places a component at `at` (canvas units) or in the center of the visible area. */
   add: (component: LibraryComponent, at?: Point) => void
+  /**
+   * Puts another version of the object's component in its place (main ↔ background): the same
+   * center, scale, rotation and mirroring. `from` is the size of the current component.
+   */
+  swapComponent: (id: string, from: Size, to: LibraryComponent) => void
+  setPalette: (paletteId: string) => void
   /** Changes with the same `mergeKey` in quick succession make one undo step. */
   update: (id: string, patch: Partial<CanvasObject>, mergeKey?: string) => void
   select: (id: string | null) => void
@@ -52,7 +62,7 @@ interface CanvasState {
   removeComponent: (componentId: string) => void
   setSize: (size: Size) => void
   /** Replaces the whole composition (an opened project) as one undo step. */
-  replace: (size: Size, objects: CanvasObject[]) => void
+  replace: (size: Size, objects: CanvasObject[], paletteId?: string) => void
   setStage: (stage: Size) => void
   setView: (view: View) => void
   fit: () => void
@@ -68,7 +78,7 @@ const fitView = (size: Size, stage: Size): View => {
   return { zoom, x: (stage.width - size.width * zoom) / 2, y: (stage.height - size.height * zoom) / 2 }
 }
 
-/** A new object's longer side, as a share of the canvas height. */
+/** A new object's longer side, as a share of the canvas height (components that are not library objects). */
 const NEW_OBJECT_SHARE = 0.35
 
 /** Center of the visible part of the page, in canvas units. */
@@ -79,7 +89,7 @@ function visibleCenter({ size, stage, view }: Pick<CanvasState, 'size' | 'stage'
   return { x: Math.min(size.width, Math.max(0, x)), y: Math.min(size.height, Math.max(0, y)) }
 }
 
-const snapshot = ({ objects, size, selectedId }: Snapshot): Snapshot => ({ objects, size, selectedId })
+const snapshot = ({ objects, size, selectedId, paletteId }: Snapshot): Snapshot => ({ objects, size, selectedId, paletteId })
 
 export const useCanvasStore = create<CanvasState>((set, get) => {
   /** Applies a change and records the state before it, unless a drag is collecting the changes. */
@@ -87,7 +97,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     const state = get()
     const changed =
       (patch.objects !== undefined && patch.objects !== state.objects) ||
-      (patch.size !== undefined && patch.size !== state.size)
+      (patch.size !== undefined && patch.size !== state.size) ||
+      (patch.paletteId !== undefined && patch.paletteId !== state.paletteId)
     if (!changed || state.gesture) set(patch)
     else set({ ...patch, history: record(state.history, snapshot(state), mergeKey) })
   }
@@ -104,6 +115,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
   return {
     size: { width: 1200, height: 800 },
     objects: [],
+    paletteId: BASE_PALETTE.id,
     selectedId: null,
     stage: { width: 0, height: 0 },
     view: { zoom: 1, x: 0, y: 0 },
@@ -112,8 +124,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     gesture: null,
     add: (component, at) => {
       const { size, objects } = get()
-      // Same visual size for every component, whatever its size in the source.
-      const scale = (size.height * NEW_OBJECT_SHARE) / Math.max(component.width, component.height)
+      // Library objects keep the proportions of the sheet; gopher pieces all get the same visual size.
+      const scale = nativeScale(component.id, size.height) ?? (size.height * NEW_OBJECT_SHARE) / Math.max(component.width, component.height)
       const center = at ?? visibleCenter(get())
       const obj: CanvasObject = {
         id: newId(),
@@ -127,6 +139,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
       }
       commit({ objects: [...objects, obj], selectedId: obj.id })
     },
+    swapComponent: (id, from, to) => {
+      const obj = get().objects.find((o) => o.id === id)
+      if (!obj || obj.componentId === to.id) return
+      const center = { x: obj.x + (from.width * obj.scale) / 2, y: obj.y + (from.height * obj.scale) / 2 }
+      get().update(id, { componentId: to.id, x: center.x - (to.width * obj.scale) / 2, y: center.y - (to.height * obj.scale) / 2 })
+    },
+    setPalette: (paletteId) => commit({ paletteId }),
     update: (id, patch, mergeKey) =>
       commit({ objects: get().objects.map((o) => (o.id === id ? { ...o, ...patch } : o)) }, mergeKey),
     select: (selectedId) => set({ selectedId }),
@@ -170,8 +189,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
       commit({ size }, 'size')
       get().fit()
     },
-    replace: (size, objects) => {
-      commit({ size, objects, selectedId: null })
+    replace: (size, objects, paletteId = BASE_PALETTE.id) => {
+      commit({ size, objects, paletteId, selectedId: null })
       get().fit()
     },
     setStage: (stage) => {

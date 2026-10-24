@@ -1,9 +1,9 @@
 import { create } from 'zustand'
+import { versionId, type ObjectSize, type ObjectState } from '../lib/libraryObjects'
 import { useLibraryStore, type LibraryComponent } from './library'
 import { assetUrl } from './sources'
 
-export type ObjectSize = 'L' | 'S'
-export type ObjectState = 'main' | 'bg'
+export { versionId, type ObjectSize, type ObjectState }
 
 export interface ObjectVersion {
   /** Path relative to the app base, e.g. "library/L/main/book.svg". */
@@ -23,9 +23,6 @@ export interface LibraryObject {
 export const OBJECT_SIZES: ObjectSize[] = ['L', 'S']
 export const OBJECT_STATES: ObjectState[] = ['main', 'bg']
 export const STATE_LABELS: Record<ObjectState, string> = { main: 'Главный', bg: 'Фоновый' }
-
-/** Id of the library component of one version of an object. */
-export const versionId = (objectId: string, size: ObjectSize, state: ObjectState) => `lib-${size}-${state}-${objectId}`
 
 /** The file holds one `<g>` already at the origin; it becomes the component markup as it is. */
 export function versionComponent(object: LibraryObject, size: ObjectSize, state: ObjectState, svg: string): LibraryComponent {

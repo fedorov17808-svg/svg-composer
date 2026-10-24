@@ -3,6 +3,7 @@ import type { CanvasObject } from '../lib/canvas'
 import { componentSvg } from '../lib/extract'
 import { useCanvasStore } from '../store/canvas'
 import { useLibraryStore, type LibraryComponent } from '../store/library'
+import { paintObject, useActivePalette } from '../store/palettes'
 import { EyeIcon, EyeOffIcon, LockIcon, UnlockIcon } from './icons'
 
 /** dataTransfer type of a layer row being dragged to a new place in the list. */
@@ -67,6 +68,7 @@ export function LayersPanel() {
   const { objects, selectedId, select, update, placeNextTo } = useCanvasStore()
   const components = useLibraryStore((s) => s.components)
   const byId = useMemo(() => new Map(components.map((c) => [c.id, c])), [components])
+  const palette = useActivePalette()
   const [dragId, setDragId] = useState<string | null>(null)
   const [drop, setDrop] = useState<Drop | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -92,6 +94,7 @@ export function LayersPanel() {
         if (obj.hidden) classes.push('layer-hidden')
         if (obj.id === dragId) classes.push('layer-dragging')
         if (drop?.id === obj.id) classes.push(`layer-drop-${drop.side}`)
+        const component = byId.get(obj.componentId)
         return (
           <li
             key={obj.id}
@@ -123,7 +126,7 @@ export function LayersPanel() {
             }}
             onDragEnd={endDrag}
           >
-            <LayerThumb component={byId.get(obj.componentId)} />
+            <LayerThumb component={component && paintObject(obj, component, palette)} />
             <LayerName obj={obj} editing={obj.id === editingId} onEditing={(on) => setEditingId(on ? obj.id : null)} />
             <button
               className={obj.hidden ? 'layer-toggle layer-toggle-on' : 'layer-toggle'}

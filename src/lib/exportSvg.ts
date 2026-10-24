@@ -16,6 +16,10 @@ export interface ExportInput {
   /** Bottom to top, as on the canvas. */
   objects: CanvasObject[]
   components: Map<string, ExportComponent>
+  /** The component as this object draws it (library objects in the color scheme); as stored by default. */
+  paint?: (obj: CanvasObject, component: ExportComponent) => ExportComponent
+  /** Fill of the background; white by default. */
+  background?: string
 }
 
 /** A readable, valid XML id from an object name: "Гофер с фонарём" → "гофер-с-фонарём". */
@@ -34,7 +38,7 @@ export function slugId(name: string) {
  * visible objects actually use (each once), then every visible object as
  * `<g id data-source transform>` with its component inside. No canvas UI.
  */
-export function exportSvg({ size, objects, components }: ExportInput): string {
+export function exportSvg({ size, objects, components, paint = (_, c) => c, background: fill = '#fff' }: ExportInput): string {
   const visible = objects.filter((o) => !o.hidden && components.has(o.componentId))
   const doc = new DOMParser().parseFromString(
     `<svg xmlns="${SVG_NS}" xmlns:xlink="${XLINK_NS}" viewBox="0 0 ${size.width} ${size.height}" ` +
@@ -65,7 +69,7 @@ export function exportSvg({ size, objects, components }: ExportInput): string {
   background.setAttribute('id', 'background')
   background.setAttribute('width', String(size.width))
   background.setAttribute('height', String(size.height))
-  background.setAttribute('fill', '#fff')
+  background.setAttribute('fill', fill)
   root.append(background)
 
   const taken = new Set(['background', ...[...defs.querySelectorAll('[id]')].map((el) => el.getAttribute('id')!)])
@@ -78,7 +82,7 @@ export function exportSvg({ size, objects, components }: ExportInput): string {
 
   const instances = new Map<string, number>()
   for (const obj of visible) {
-    const component = components.get(obj.componentId)!
+    const component = paint(obj, components.get(obj.componentId)!)
     const g = doc.createElementNS(SVG_NS, 'g')
     g.setAttribute('id', unique(slugId(obj.name)))
     g.setAttribute('data-source', component.sourceId)

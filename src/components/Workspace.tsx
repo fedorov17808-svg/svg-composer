@@ -5,6 +5,7 @@ import { useUiStore, type WorkspaceMode } from '../store/ui'
 import { CanvasToolbar } from './CanvasToolbar'
 import { CompositionCanvas } from './CompositionCanvas'
 import { NumberField } from './NumberField'
+import { PaletteBar } from './PaletteBar'
 
 const MODES: { id: WorkspaceMode; label: string }[] = [
   { id: 'source', label: 'Исходник' },
@@ -19,6 +20,7 @@ export function Workspace() {
       <div className="workspace-toolbar">
         <CanvasControls />
       </div>
+      <PaletteBar />
       <CompositionCanvas />
     </main>
   )
