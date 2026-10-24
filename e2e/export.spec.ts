@@ -19,7 +19,8 @@ const SIZE = { width: 1200, height: 800 }
 const PICKS = [
   { object: 'book', size: 'Размер L', state: 'Главный', file: 'library/L/main/book.svg', slug: 'книга' },
   { object: 'lamp', size: 'Размер L', state: 'Фоновый', file: 'library/L/bg/lamp.svg', slug: 'лампа' },
-  { object: 'coin', size: 'Размер S', state: 'Главный', file: 'library/S/main/coin.svg', slug: 'монета' },
+  // L/S is one for the whole composition (stage 3); S is exported in format.spec.ts.
+  { object: 'coin', size: 'Размер L', state: 'Главный', file: 'library/L/main/coin.svg', slug: 'монета' },
 ]
 
 interface Obj {
@@ -58,6 +59,11 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
 
   const tiles = page.locator('.library-tile')
   await expect(tiles).toHaveCount(10)
+  // The scene was laid out on the 1200×800 canvas of v1; the default is now the wide format.
+  await page.evaluate(async (size) => {
+    const { useCanvasStore } = await import('/src/store/canvas.ts')
+    useCanvasStore.getState().setSize(size)
+  }, SIZE)
   for (const pick of PICKS) {
     await page.getByRole('radio', { name: pick.size }).click()
     await page.getByRole('radiogroup', { name: 'Состояние' }).getByRole('radio', { name: pick.state }).click()
@@ -102,7 +108,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
         ...(/(^|:)href$/.test(a.name) && a.value.startsWith('#') ? [a.value.slice(1)] : []),
       ]),
     )
-    const objects = [...root.children].filter((el) => el.tagName === 'g')
+    const objects = [...(root.querySelector(':scope > g#composition')?.children ?? [])].filter((el) => el.tagName === 'g')
     return {
       parseError: doc.querySelector('parsererror')?.textContent ?? null,
       viewBox: root.getAttribute('viewBox'),
@@ -110,6 +116,8 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
       height: root.getAttribute('height'),
       background: root.querySelector(':scope > rect#background')?.getAttribute('fill') ?? null,
       defs: doc.querySelectorAll('defs').length,
+      defIds: [...(doc.querySelector('defs')?.children ?? [])].map((el) => el.id),
+      clip: root.querySelector(':scope > g#composition')?.getAttribute('clip-path') ?? null,
       duplicates: ids.filter((id, i) => ids.indexOf(id) !== i),
       refs: refs.length,
       unresolved: refs.filter((id) => !ids.includes(id)),
@@ -121,8 +129,10 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   expect([check.viewBox, check.width, check.height]).toEqual(['0 0 1200 800', '1200', '800'])
   // bg1 of the scheme, the lilac one by default.
   expect(check.background).toBe('#D7CDF5')
-  // The library objects have no definitions and no references.
-  expect(check.defs).toBe(0)
+  // The library objects have no definitions; the only one is the clip of the frame.
+  expect(check.defs).toBe(1)
+  expect(check.defIds).toEqual(['canvas-clip'])
+  expect(check.clip).toBe('url(#canvas-clip)')
   expect(check.duplicates).toEqual([])
   expect(check.unresolved).toEqual([])
   expect(check.ui).toBe(0)
@@ -142,7 +152,7 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
     const file = await (await page.request.get(`/${pick.file}`)).text()
     const own = await shapes(file, 'svg > g > *')
     expect(own.length, pick.file).toBeGreaterThan(10)
-    expect(await shapes(svg.text, `svg > g#${pick.slug} > g > *`), pick.file).toEqual(own)
+    expect(await shapes(svg.text, `svg > g#composition > g#${pick.slug} > g > *`), pick.file).toEqual(own)
   }
 
   // Canvas at 50 % without the page border; then the downloaded file as an <img> of the same size

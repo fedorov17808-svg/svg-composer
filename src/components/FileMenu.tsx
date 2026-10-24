@@ -102,10 +102,10 @@ export function FileMenu() {
   }, [])
 
   const saveProject = () => {
-    const { size, objects } = useCanvasStore.getState()
+    const { size, objects, paletteId, format, objectSize } = useCanvasStore.getState()
     // The saved scheme, not a palette still being edited in the form.
-    const palette = findPalette(usePalettesStore.getState(), useCanvasStore.getState().paletteId)
-    const project = createProject(size, objects, useLibraryStore.getState().components, palette)
+    const palette = findPalette(usePalettesStore.getState(), paletteId)
+    const project = createProject(size, objects, useLibraryStore.getState().components, palette, { format, objectSize })
     download(new Blob([serializeProject(project)], { type: 'application/json' }), exportFileName('json', new Date(), 'project'))
   }
 
@@ -116,7 +116,11 @@ export function FileMenu() {
       await useLibraryStore.getState().addMissing(project.components)
       // A palette of the user that is not here yet comes with the project.
       if (project.palette) await usePalettesStore.getState().addMissing(project.palette)
-      useCanvasStore.getState().replace(project.canvas, project.objects, project.palette?.id)
+      useCanvasStore.getState().replace(project.canvas, project.objects, {
+        paletteId: project.palette?.id,
+        format: project.canvasFormat,
+        objectSize: project.objectSize,
+      })
       useUiStore.getState().setWorkspaceMode('composition')
       useUiStore.getState().showToast(`${kind} «${name}» открыт`)
     } catch (err) {

@@ -15,14 +15,18 @@ export function parseVersionId(id: string): { objectId: string; size: ObjectSize
  * versions differ in detail, not in size), so an S object is shown twice as large to match its L one.
  */
 const SHEET_SCALE: Record<ObjectSize, number> = { L: 1, S: 2 }
-/** Sheet units of L that fit in the canvas height: on a 1200×800 canvas the L book is 578 wide, the coin 115. */
-const SHEET_PER_HEIGHT = 2000
+/**
+ * Sheet units of L per side of a square with the canvas area: on a 1200×800 canvas the L book is 578
+ * wide, the coin 115. By area, not height, so a format change (which scales objects by the root of the
+ * area ratio) and a newly placed object agree.
+ */
+const SHEET_PER_SIDE = 2000 * Math.sqrt(1200 / 800)
 
 /**
  * Scale of a new library object: every object in the proportions of the Figma sheet (a small coin,
  * a big book), not all to the same height. Null for components that are not library versions.
  */
-export function nativeScale(componentId: string, canvasHeight: number): number | null {
+export function nativeScale(componentId: string, canvas: { width: number; height: number }): number | null {
   const version = parseVersionId(componentId)
-  return version ? (canvasHeight / SHEET_PER_HEIGHT) * SHEET_SCALE[version.size] : null
+  return version ? (Math.sqrt(canvas.width * canvas.height) / SHEET_PER_SIDE) * SHEET_SCALE[version.size] : null
 }

@@ -72,6 +72,20 @@ describe('project file', () => {
     expect(() => parseProject(JSON.stringify(bad))).toThrow('поле «variant»')
   })
 
+  it('keeps the canvas format and the L/S size', () => {
+    const project = parseProject(serializeProject(createProject({ width: 1000, height: 1500 }, OBJECTS, LIBRARY, undefined, { format: 'tall', objectSize: 'S' })))
+    expect(project).toMatchObject({ canvas: { width: 1000, height: 1500 }, canvasFormat: 'tall', objectSize: 'S' })
+    // Files saved before stage 3 have neither.
+    expect(parseProject(saved())).not.toHaveProperty('canvasFormat')
+    expect(parseProject(saved())).not.toHaveProperty('objectSize')
+    const bad = JSON.parse(saved())
+    bad.canvasFormat = 'panorama'
+    expect(() => parseProject(JSON.stringify(bad))).toThrow('Неизвестный формат холста «panorama»')
+    delete bad.canvasFormat
+    bad.objectSize = 'M'
+    expect(() => parseProject(JSON.stringify(bad))).toThrow('Неизвестный размер объектов «M»')
+  })
+
   it('drops unknown fields', () => {
     const project = broken((d) => (d.objects[0].evil = '<script>'))()
     expect(project.objects[0]).not.toHaveProperty('evil')

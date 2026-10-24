@@ -49,9 +49,14 @@ function zoomAt(p: Point, zoom: number) {
   setView({ zoom: next, x: p.x - (p.x - view.x) * k, y: p.y - (p.y - view.y) * k })
 }
 
-const CanvasItem = memo(function CanvasItem({ obj, component }: { obj: CanvasObject; component: LibraryComponent }) {
+/** Clips the objects to the page; the id is unlike the ids of component definitions. */
+const FRAME_CLIP = 'svg-composer-frame-clip'
+
+/** `ghost`: the faint copy under the page that shows (and grabs) what lies past the frame. */
+const CanvasItem = memo(function CanvasItem({ obj, component, ghost = false }: { obj: CanvasObject; component: LibraryComponent; ghost?: boolean }) {
   const html = useMemo(() => ({ __html: canvasParts(component).markup }), [component])
-  return <g data-object-id={obj.id} transform={objectTransform(obj, component)} dangerouslySetInnerHTML={html} />
+  const id = ghost ? { 'data-ghost-id': obj.id } : { 'data-object-id': obj.id }
+  return <g {...id} transform={objectTransform(obj, component)} dangerouslySetInnerHTML={html} />
 })
 
 /** Drawn in screen pixels, so line and handle sizes do not depend on zoom. */
@@ -267,7 +272,8 @@ export function CompositionCanvas() {
           }
         }
       } else {
-        let id = target.closest('[data-object-id]')?.getAttribute('data-object-id') ?? null
+        const hit = target.closest('[data-object-id], [data-ghost-id]')
+        let id = hit?.getAttribute('data-object-id') ?? hit?.getAttribute('data-ghost-id') ?? null
         // Transparent parts of the selected object still grab it.
         if (!id && selected && component) {
           const local = toLocal(selected, component, c)
@@ -358,10 +364,23 @@ export function CompositionCanvas() {
           preserveAspectRatio="xMinYMin meet"
         >
           <defs dangerouslySetInnerHTML={defs} />
+          <defs>
+            <clipPath id={FRAME_CLIP}>
+              <rect width={size.width} height={size.height} />
+            </clipPath>
+          </defs>
+          {/* The export is cut by the frame; here the parts past it stay visible, faint, to grab. */}
+          <g className="canvas-overflow">
+            {visible.map((obj) => (
+              <CanvasItem key={obj.id} obj={obj} component={paintObject(obj, byId.get(obj.componentId)!, palette)} ghost />
+            ))}
+          </g>
           <rect className="canvas-page" width={size.width} height={size.height} style={{ fill: palette.background[0] }} />
-          {visible.map((obj) => (
-            <CanvasItem key={obj.id} obj={obj} component={paintObject(obj, byId.get(obj.componentId)!, palette)} />
-          ))}
+          <g clipPath={`url(#${FRAME_CLIP})`}>
+            {visible.map((obj) => (
+              <CanvasItem key={obj.id} obj={obj} component={paintObject(obj, byId.get(obj.componentId)!, palette)} />
+            ))}
+          </g>
         </svg>
       )}
       {ready && (

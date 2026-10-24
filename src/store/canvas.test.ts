@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { boxCenter, toCanvas } from '../lib/canvas'
 import { emptyHistory } from '../lib/history'
 import { DUPLICATE_OFFSET, useCanvasStore } from './canvas'
-import type { LibraryComponent } from './library'
+import { useLibraryStore, type LibraryComponent } from './library'
 
 const component = (id: string): LibraryComponent => ({
   id,
@@ -20,7 +20,7 @@ const store = () => useCanvasStore.getState()
 const order = () => store().objects.map((o) => o.name).join(' ')
 
 beforeEach(() => {
-  useCanvasStore.setState({ objects: [], selectedId: null, history: emptyHistory(), gesture: null, paletteId: 'lilac', size: { width: 1200, height: 800 } })
+  useCanvasStore.setState({ objects: [], selectedId: null, history: emptyHistory(), gesture: null, paletteId: 'lilac', size: { width: 1200, height: 800 }, format: 'custom', objectSize: 'L' })
 })
 
 const version = (id: string, width: number, height: number): LibraryComponent => ({ ...component(id), sourceId: 'library', width, height })
@@ -64,6 +64,66 @@ describe('library objects', () => {
     expect(store().paletteId).toBe('lilac')
     store().redo()
     expect(store().paletteId).toBe('mint')
+  })
+})
+
+describe('format and object size', () => {
+  const versions = [
+    version('lib-L-main-book', 1445.9, 976.67),
+    version('lib-S-main-book', 722.96, 488.35),
+    version('lib-L-bg-coin', 286.68, 146.42),
+    version('lib-S-bg-coin', 152.41, 77.83),
+  ]
+  beforeEach(() => useLibraryStore.setState({ components: versions }))
+
+  it('a preset resizes the canvas, lays the objects out again as one undo step', () => {
+    store().add(versions[0], { x: 300, y: 200 })
+    store().add(versions[2], { x: 900, y: 600 })
+    const before = store().objects
+    store().setFormat('square')
+    expect(store()).toMatchObject({ format: 'square', size: { width: 1000, height: 1000 } })
+    const [book, coin] = store().objects
+    // Centers at the same share of the frame, one scale factor for all.
+    expect(boxCenter(book, versions[0])).toEqual({ x: expect.closeTo(250), y: expect.closeTo(250) })
+    expect(boxCenter(coin, versions[2])).toEqual({ x: expect.closeTo(750), y: expect.closeTo(750) })
+    expect(coin.scale / before[1].scale).toBeCloseTo(book.scale / before[0].scale, 9)
+    store().setFormat('tall')
+    store().undo()
+    expect(store().format).toBe('square')
+    store().undo()
+    expect(store()).toMatchObject({ format: 'custom', size: { width: 1200, height: 800 }, objects: before })
+  })
+
+  it('«custom» keeps the size; the size fields lay the objects out too', () => {
+    store().setFormat('wide')
+    store().add(versions[0], { x: 1000, y: 500 })
+    store().setFormat('custom')
+    expect(store()).toMatchObject({ format: 'custom', size: { width: 2000, height: 1000 } })
+    store().setSize({ width: 500, height: 250 })
+    expect(boxCenter(store().objects[0], versions[0])).toEqual({ x: expect.closeTo(250), y: expect.closeTo(125) })
+  })
+
+  it('L ↔ S swaps every library object in one undo step and keeps its transforms', () => {
+    store().add(versions[0], { x: 300, y: 200 })
+    store().add(versions[2], { x: 900, y: 600 })
+    store().update(store().objects[0].id, { rotation: 45, flipX: true, variant: 4 })
+    const before = store().objects
+    store().setObjectSize('S')
+    expect(store().objectSize).toBe('S')
+    const after = store().objects
+    expect(after.map((o) => o.componentId)).toEqual(['lib-S-main-book', 'lib-S-bg-coin'])
+    expect(after[0]).toMatchObject({ rotation: 45, flipX: true, variant: 4 })
+    expect(boxCenter(after[0], versions[1])).toEqual({ x: expect.closeTo(300), y: expect.closeTo(200) })
+    expect(versions[1].width * after[0].scale).toBeCloseTo(versions[0].width * before[0].scale, 1)
+    store().undo()
+    expect(store()).toMatchObject({ objectSize: 'L', objects: before })
+  })
+
+  it('an opened project without settings gets the format from its size and L/S from its objects', () => {
+    store().replace({ width: 1000, height: 1500 }, [{ id: 'x', componentId: 'lib-S-bg-coin', name: 'Монета', x: 0, y: 0, scale: 1, rotation: 0, flipX: false }])
+    expect(store()).toMatchObject({ format: 'tall', objectSize: 'S', paletteId: 'lilac' })
+    store().replace({ width: 1000, height: 1500 }, [], { format: 'custom', objectSize: 'S', paletteId: 'mint' })
+    expect(store()).toMatchObject({ format: 'custom', objectSize: 'S', paletteId: 'mint' })
   })
 })
 

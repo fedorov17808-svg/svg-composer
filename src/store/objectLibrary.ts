@@ -46,10 +46,8 @@ interface ObjectLibraryState {
   status: 'idle' | 'loading' | 'ready' | 'error'
   error: string | null
   objects: LibraryObject[]
-  size: ObjectSize
   state: ObjectState
   load: () => Promise<void>
-  setSize: (size: ObjectSize) => void
   setState: (state: ObjectState) => void
 }
 
@@ -57,7 +55,6 @@ export const useObjectLibraryStore = create<ObjectLibraryState>((set, get) => ({
   status: 'idle',
   error: null,
   objects: [],
-  size: 'L',
   state: 'main',
   load: async () => {
     if (get().status === 'loading' || get().status === 'ready') return
@@ -84,6 +81,5 @@ export const useObjectLibraryStore = create<ObjectLibraryState>((set, get) => ({
       set({ status: 'error', error: err instanceof Error ? err.message : String(err) })
     }
   },
-  setSize: (size) => set({ size }),
   setState: (state) => set({ state }),
 }))

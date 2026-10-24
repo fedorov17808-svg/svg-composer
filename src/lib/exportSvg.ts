@@ -33,10 +33,16 @@ export function slugId(name: string) {
   return /^\p{L}/u.test(slug) ? slug : `object-${slug}`
 }
 
+/** Ids of the frame clip and of the group it clips: the objects. */
+export const CLIP_ID = 'canvas-clip'
+export const COMPOSITION_ID = 'composition'
+
 /**
  * The composition as a standalone SVG: a white background, one `<defs>` with the definitions the
- * visible objects actually use (each once), then every visible object as
- * `<g id data-source transform>` with its component inside. No canvas UI.
+ * visible objects actually use (each once) and the clip of the canvas frame, then
+ * `<g id="composition" clip-path>` with every visible object as `<g id data-source transform>`,
+ * its component inside. Objects past the edge are cut by the frame in editors too, not only by the
+ * viewBox. No canvas UI.
  */
 export function exportSvg({ size, objects, components, paint = (_, c) => c, background: fill = '#fff' }: ExportInput): string {
   const visible = objects.filter((o) => !o.hidden && components.has(o.componentId))
@@ -72,7 +78,12 @@ export function exportSvg({ size, objects, components, paint = (_, c) => c, back
   background.setAttribute('fill', fill)
   root.append(background)
 
-  const taken = new Set(['background', ...[...defs.querySelectorAll('[id]')].map((el) => el.getAttribute('id')!)])
+  const composition = doc.createElementNS(SVG_NS, 'g')
+  composition.setAttribute('id', COMPOSITION_ID)
+  composition.setAttribute('clip-path', `url(#${CLIP_ID})`)
+  root.append(composition)
+
+  const taken = new Set(['background', CLIP_ID, COMPOSITION_ID, ...[...defs.querySelectorAll('[id]')].map((el) => el.getAttribute('id')!)])
   const unique = (base: string) => {
     let id = base
     for (let n = 2; taken.has(id); n++) id = `${base}-${n}`
@@ -93,7 +104,7 @@ export function exportSvg({ size, objects, components, paint = (_, c) => c, back
     instances.set(obj.componentId, count + 1)
     if (count > 0) prefixIds([...g.children], `${g.getAttribute('id')}-`)
     for (const el of g.querySelectorAll('[id]')) taken.add(el.getAttribute('id')!)
-    root.append(g)
+    composition.append(g)
   }
 
   // Keep only definitions reachable from the drawn content.
@@ -109,7 +120,13 @@ export function exportSvg({ size, objects, components, paint = (_, c) => c, back
   for (const el of [...defs.children]) {
     if (!allElements(el).some((e) => used.has(e.getAttribute('id') ?? ''))) el.remove()
   }
-  if (!defs.children.length) defs.remove()
+  const clip = doc.createElementNS(SVG_NS, 'clipPath')
+  clip.setAttribute('id', CLIP_ID)
+  const frame = doc.createElementNS(SVG_NS, 'rect')
+  frame.setAttribute('width', String(size.width))
+  frame.setAttribute('height', String(size.height))
+  clip.append(frame)
+  defs.append(clip)
 
   return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(doc)
 }

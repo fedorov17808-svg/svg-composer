@@ -3,8 +3,8 @@ import { componentSvg } from '../lib/extract'
 import { COMPONENT_DRAG_TYPE, useCanvasStore } from '../store/canvas'
 import { useLibraryStore } from '../store/library'
 import { paintObject, useActivePalette } from '../store/palettes'
+import { Segmented } from './Segmented'
 import {
-  OBJECT_SIZES,
   OBJECT_STATES,
   STATE_LABELS,
   useObjectLibraryStore,
@@ -12,26 +12,9 @@ import {
   type LibraryObject,
 } from '../store/objectLibrary'
 
-function Segmented<T extends string>({ label, items, value, onChange }: { label: string; items: { id: T; label: string }[]; value: T; onChange: (id: T) => void }) {
-  return (
-    <div className="segmented" role="radiogroup" aria-label={label}>
-      {items.map((item) => (
-        <button
-          key={item.id}
-          role="radio"
-          aria-checked={value === item.id}
-          className={value === item.id ? 'segmented-item segmented-active' : 'segmented-item'}
-          onClick={() => onChange(item.id)}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 function ObjectTile({ object }: { object: LibraryObject }) {
-  const size = useObjectLibraryStore((s) => s.size)
+  // The size of the composition: the canvas and the library always use the same versions.
+  const size = useCanvasStore((s) => s.objectSize)
   const state = useObjectLibraryStore((s) => s.state)
   const id = versionId(object.id, size, state)
   const stored = useLibraryStore((s) => s.components.find((c) => c.id === id))
@@ -68,7 +51,7 @@ function ObjectTile({ object }: { object: LibraryObject }) {
 
 /** The objects of the library in the chosen size and state; a click or a drag puts one on the canvas. */
 export function ObjectLibraryGrid() {
-  const { status, error, objects, size, state, load, setSize, setState } = useObjectLibraryStore()
+  const { status, error, objects, state, load, setState } = useObjectLibraryStore()
 
   useEffect(() => {
     void load()
@@ -86,7 +69,6 @@ export function ObjectLibraryGrid() {
   return (
     <>
       <div className="object-library-controls">
-        <Segmented label="Размер" items={OBJECT_SIZES.map((id) => ({ id, label: `Размер ${id}` }))} value={size} onChange={setSize} />
         <Segmented label="Состояние" items={OBJECT_STATES.map((id) => ({ id, label: STATE_LABELS[id] }))} value={state} onChange={setState} />
       </div>
       <ul className="source-grid" aria-label="Объекты библиотеки">

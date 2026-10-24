@@ -1,5 +1,7 @@
 import { createStore, get, set } from 'idb-keyval'
 import type { CanvasObject, Size } from '../lib/canvas'
+import { FORMAT_IDS, formatOf, objectSizeOf, type FormatId } from '../lib/formats'
+import type { ObjectSize } from '../lib/libraryObjects'
 import { useCanvasStore } from './canvas'
 
 /** A separate database: a new store cannot be added to the existing library database. */
@@ -12,13 +14,16 @@ interface Saved {
   objects: CanvasObject[]
   /** Missing in compositions saved before v2. */
   paletteId?: string
+  /** Missing in compositions saved before v2 stage 3. */
+  format?: FormatId
+  objectSize?: ObjectSize
 }
 
 const isSaved = (v: unknown): v is Saved =>
   typeof v === 'object' && v !== null && Array.isArray((v as Saved).objects) && typeof (v as Saved).size?.width === 'number'
 
 /**
- * Restores the last composition, then saves objects, canvas size and color scheme after every change. History is
+ * Restores the last composition, then saves objects, canvas size, format, object size and color scheme after every change. History is
  * session state and is not kept.
  */
 export async function startAutosave() {
@@ -26,7 +31,14 @@ export async function startAutosave() {
     const saved = await get<unknown>(KEY, db)
     // Only if nothing has been placed while the database was opening.
     if (isSaved(saved) && useCanvasStore.getState().objects.length === 0) {
-      useCanvasStore.setState({ size: saved.size, objects: saved.objects, selectedId: null, ...(saved.paletteId ? { paletteId: saved.paletteId } : {}) })
+      useCanvasStore.setState({
+        size: saved.size,
+        objects: saved.objects,
+        selectedId: null,
+        format: saved.format && FORMAT_IDS.includes(saved.format) ? saved.format : formatOf(saved.size),
+        objectSize: saved.objectSize === 'L' || saved.objectSize === 'S' ? saved.objectSize : objectSizeOf(saved.objects),
+        ...(saved.paletteId ? { paletteId: saved.paletteId } : {}),
+      })
       useCanvasStore.getState().fit()
     }
   } catch (err) {
@@ -37,13 +49,14 @@ export async function startAutosave() {
   const save = () => {
     clearTimeout(timer)
     timer = undefined
-    const { size, objects, paletteId } = useCanvasStore.getState()
-    set(KEY, { size, objects, paletteId } satisfies Saved, db).catch((err) =>
+    const { size, objects, paletteId, format, objectSize } = useCanvasStore.getState()
+    set(KEY, { size, objects, paletteId, format, objectSize } satisfies Saved, db).catch((err) =>
       console.warn('Автосохранение: не удалось записать композицию', err),
     )
   }
   useCanvasStore.subscribe((state, prev) => {
-    if (state.objects === prev.objects && state.size === prev.size && state.paletteId === prev.paletteId) return
+    const same = (['objects', 'size', 'paletteId', 'format', 'objectSize'] as const).every((key) => state[key] === prev[key])
+    if (same) return
     clearTimeout(timer)
     timer = setTimeout(save, DELAY)
   })

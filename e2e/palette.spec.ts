@@ -53,7 +53,7 @@ async function exportedSvg(page: Page) {
       [...root.querySelectorAll('[fill], [stroke]')].flatMap((el) => ['fill', 'stroke'].map((a) => el.getAttribute(a)).filter((c): c is string => !!c && c !== 'none'))
     return {
       background: doc.querySelector('#background')?.getAttribute('fill'),
-      objects: [...doc.documentElement.children].filter((el) => el.localName === 'g').map((g) => ({ id: g.id, colors: [...new Set(colors(g))] })),
+      objects: [...doc.querySelectorAll('svg > g#composition > g')].map((g) => ({ id: g.id, colors: [...new Set(colors(g))] })),
     }
   }, text)
 }

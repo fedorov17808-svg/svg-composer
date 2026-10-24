@@ -1,5 +1,7 @@
 import type { LibraryComponent } from '../store/library'
 import type { CanvasObject, Size } from './canvas'
+import { FORMAT_IDS, type FormatId } from './formats'
+import type { ObjectSize } from './libraryObjects'
 import { PaletteError, validatePalette, VARIANTS, type Palette } from './palette'
 
 export const PROJECT_FORMAT = 'svg-composer-project'
@@ -16,12 +18,21 @@ export interface Project {
   components: LibraryComponent[]
   /** Color scheme of the composition; missing in files saved before v2 (then the base scheme). */
   palette?: Palette
+  /** Canvas format and size of the library objects; missing in files saved before v2 stage 3. */
+  canvasFormat?: FormatId
+  objectSize?: ObjectSize
+}
+
+/** Format and object size of a composition, as saved with it. */
+export interface ProjectLayout {
+  format: FormatId
+  objectSize: ObjectSize
 }
 
 /** A file that cannot be opened; the message is for the user. */
 export class ProjectError extends Error {}
 
-export function createProject(size: Size, objects: CanvasObject[], library: LibraryComponent[], palette?: Palette): Project {
+export function createProject(size: Size, objects: CanvasObject[], library: LibraryComponent[], palette?: Palette, layout?: ProjectLayout): Project {
   const used = new Set(objects.map((o) => o.componentId))
   return {
     format: PROJECT_FORMAT,
@@ -31,6 +42,7 @@ export function createProject(size: Size, objects: CanvasObject[], library: Libr
     objects: objects.map((o) => ({ ...o })),
     components: library.filter((c) => used.has(c.id)),
     ...(palette ? { palette: { id: palette.id, name: palette.name, background: [...palette.background], objects: [...palette.objects] } } : {}),
+    ...(layout ? { canvasFormat: layout.format, objectSize: layout.objectSize } : {}),
   }
 }
 
@@ -127,6 +139,12 @@ export function parseProject(text: string): Project {
       throw err instanceof PaletteError ? new ProjectError(err.message) : err
     }
   }
+  if (data.canvasFormat !== undefined && !FORMAT_IDS.includes(data.canvasFormat as FormatId)) {
+    throw new ProjectError(`Неизвестный формат холста «${String(data.canvasFormat)}».`)
+  }
+  if (data.objectSize !== undefined && data.objectSize !== 'L' && data.objectSize !== 'S') {
+    throw new ProjectError(`Неизвестный размер объектов «${String(data.objectSize)}» (нужен L или S).`)
+  }
   const componentIds = new Set(components.map((c) => c.id))
   const objectIds = new Set<string>()
   const objects = data.objects.map((o, i) => {
@@ -146,5 +164,7 @@ export function parseProject(text: string): Project {
     objects,
     components,
     ...(palette ? { palette } : {}),
+    ...(data.canvasFormat !== undefined ? { canvasFormat: data.canvasFormat as FormatId } : {}),
+    ...(data.objectSize !== undefined ? { objectSize: data.objectSize as ObjectSize } : {}),
   }
 }

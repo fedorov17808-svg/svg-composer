@@ -90,7 +90,7 @@ describe('exportSvg', () => {
   })
 
   it('exports one <g> per visible object, bottom to top, with readable ids and sources', () => {
-    const groups = [...root.children].filter((el) => el.hasAttribute('data-source'))
+    const groups = [...root.querySelector('#composition')!.children].filter((el) => el.hasAttribute('data-source'))
     expect(groups.map((g) => g.getAttribute('id'))).toEqual(['гофер-с-фонарём', 'гофер-с-фонарём-2', 'забор', 'забор-2'])
     expect(groups.map((g) => g.getAttribute('data-source'))).toEqual(['s01', 's01', 's05', 's05'])
     expect(groups[1].getAttribute('transform')).toBe('translate(20 30) rotate(30) scale(-2 2) translate(-5 -5)')
@@ -99,9 +99,21 @@ describe('exportSvg', () => {
   it('keeps only the definitions in use, once each, in a single defs', () => {
     expect(root.querySelectorAll('defs')).toHaveLength(1)
     const defIds = [...root.querySelector('defs')!.children].map((el) => el.getAttribute('id'))
-    expect(defIds.sort()).toEqual(['ca-base', 'ca-clip', 'ca-grad'])
+    expect(defIds.sort()).toEqual(['ca-base', 'ca-clip', 'ca-grad', 'canvas-clip'])
     // Clip path keeps the inherited fill rule after moving out of the markup.
     expect(root.querySelector('#ca-clip')!.getAttribute('fill-rule')).toBe('evenodd')
+  })
+
+  it('cuts the objects by the canvas frame with one clip path', () => {
+    expect([...root.children].map((el) => el.tagName)).toEqual(['defs', 'rect', 'g'])
+    const composition = root.querySelector(':scope > g')!
+    expect(composition.getAttribute('id')).toBe('composition')
+    expect(composition.getAttribute('clip-path')).toBe('url(#canvas-clip)')
+    const frame = root.querySelector('#canvas-clip')!
+    expect(frame.tagName).toBe('clipPath')
+    const rect = frame.firstElementChild!
+    expect([frame.children.length, rect.tagName, rect.getAttribute('width'), rect.getAttribute('height')]).toEqual([1, 'rect', '300', '200'])
+    expect(rect.hasAttribute('x') || rect.hasAttribute('transform')).toBe(false)
   })
 
   it('leaves out hidden objects and their definitions', () => {
