@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test'
 
+// v1, режим гоферов: исходники, выделение, демо-набор и примеры убраны из интерфейса в v2 (TASK-v2.md).
+// Код режима оставлен, тест отключён; заменяют его e2e/object-library.spec.ts и адаптированные export/canvas-edit.
+test.skip(true, 'v1: режим гоферов отключён в v2')
+
 /**
  * A returning visitor: the library holds the old demo shop (no awning) under the old seed version.
  * On start it gets the shop from the current seed, with the name the user gave it.

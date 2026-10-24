@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
+// v1, режим гоферов: исходники, выделение, демо-набор и примеры убраны из интерфейса в v2 (TASK-v2.md).
+// Код режима оставлен, тест отключён; заменяют его e2e/object-library.spec.ts и адаптированные export/canvas-edit.
+test.skip(true, 'v1: режим гоферов отключён в v2')
+
 /**
  * Stage 8: the header fits from 1024px, the first start fills the library with demo components,
  * examples open from the project menu, reset to demo asks first, help, empty states.

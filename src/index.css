@@ -1071,3 +1071,10 @@ button {
   font: inherit;
   font-weight: 600;
 }
+
+.object-library-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}

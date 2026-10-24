@@ -17,6 +17,9 @@ export interface LibraryComponent {
 }
 
 const db = createStore('svg-composer', 'library')
+/** Components of the object library (`public/library`) come with the app and live in memory only. */
+export const isBuiltin = (id: string) => id.startsWith('lib-')
+const builtinOf = (components: LibraryComponent[]) => components.filter((c) => isBuiltin(c.id))
 /** Set once the demo components have been offered, so a library emptied on purpose stays empty. */
 const SEEDED_KEY = 'svg-composer-seeded'
 /**
@@ -45,6 +48,8 @@ interface LibraryState {
   remove: (id: string) => Promise<void>
   /** Replaces the library with the demo components; canvas objects of removed components go too. */
   resetToDemo: () => Promise<void>
+  /** Puts the object library in, replacing the previous copy; nothing is written to IndexedDB. */
+  setBuiltin: (components: LibraryComponent[]) => void
 }
 
 /** The one load in flight or done; callers that need the library wait for it. */
@@ -88,7 +93,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         }
         localStorage.setItem(SEEDED_KEY, SEED_VERSION)
         components.sort((a, b) => a.createdAt - b.createdAt)
-        set({ status: 'ready', components })
+        set({ status: 'ready', components: [...components.filter((c) => !isBuiltin(c.id)), ...builtinOf(get().components)] })
       } catch (err) {
         loading = null
         set({ status: 'error', error: err instanceof Error ? err.message : String(err) })
@@ -103,7 +108,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     const have = new Set(get().components.map((c) => c.id))
     const missing = components.filter((c) => !have.has(c.id))
     if (!missing.length) return
-    await setMany(missing.map((c) => [c.id, c]), db)
+    // Object library components of a project only fill in until the app's own copy loads.
+    await setMany(missing.filter((c) => !isBuiltin(c.id)).map((c) => [c.id, c]), db)
     set({ components: [...get().components, ...missing] })
   },
   rename: async (id, name) => {
@@ -123,8 +129,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     await clear(db)
     await setMany(seed.map((c) => [c.id, c]), db)
     const keep = new Set(seed.map((c) => c.id))
-    const removed = get().components.filter((c) => !keep.has(c.id))
-    set({ components: seed })
+    const removed = get().components.filter((c) => !keep.has(c.id) && !isBuiltin(c.id))
+    set({ components: [...seed, ...builtinOf(get().components)] })
     for (const c of removed) useCanvasStore.getState().removeComponent(c.id)
   },
+  setBuiltin: (components) => set({ components: [...get().components.filter((c) => !isBuiltin(c.id)), ...components] }),
 }))

@@ -9,7 +9,7 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="app-title">SVG Composer</h1>
-        <span className="app-subtitle">собирайте сцены из готовых SVG</span>
+        <span className="app-subtitle">композиции из объектов библиотеки</span>
         <FileMenu />
       </header>
       <div className="app-body">

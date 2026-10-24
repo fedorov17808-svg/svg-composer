@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
 import { openSource, skipDemo } from './render'
 
+// v1, режим гоферов: исходники, выделение, демо-набор и примеры убраны из интерфейса в v2 (TASK-v2.md).
+// Код режима оставлен, тест отключён; заменяют его e2e/object-library.spec.ts и адаптированные export/canvas-edit.
+test.skip(true, 'v1: режим гоферов отключён в v2')
+
 test.beforeEach(skipDemo)
 
 /**

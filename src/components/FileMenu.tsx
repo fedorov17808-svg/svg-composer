@@ -11,6 +11,7 @@ import { Menu, type MenuEntry } from './Menu'
 
 const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform)
 const PNG_SCALE = 2
+const SHOW_GOPHERS = false
 /** Safari refuses canvases over about 16.7 million pixels. */
 const MAX_PNG_PIXELS = 16_000_000
 
@@ -142,12 +143,16 @@ export function FileMenu() {
     }
   }
 
-  const projectEntries: MenuEntry[] = [
-    { label: 'Открыть проект…', onSelect: () => inputRef.current?.click() },
-    { label: 'Сохранить проект', onSelect: saveProject },
+  // The gopher examples and the demo library of v1 are off until the examples of the object library.
+  const gopherEntries: MenuEntry[] = [
     ...(examples.length ? ['Примеры', ...examples.map((ex) => ({ label: ex.title, onSelect: () => void openExample(ex) }))] : []),
     'Библиотека',
     { label: 'Сбросить к демо…', onSelect: () => setDialog('reset') },
+  ]
+  const projectEntries: MenuEntry[] = [
+    { label: 'Открыть проект…', onSelect: () => inputRef.current?.click() },
+    { label: 'Сохранить проект', onSelect: saveProject },
+    ...(SHOW_GOPHERS ? gopherEntries : []),
   ]
 
   return (

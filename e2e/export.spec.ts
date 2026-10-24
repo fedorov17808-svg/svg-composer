@@ -1,24 +1,25 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { diff, openSource, skipDemo } from './render'
+import { diff, skipDemo } from './render'
 
 test.beforeEach(skipDemo)
 
 /**
- * Stage 7: a scene from three sources is downloaded as SVG; the file is rendered on its own and
- * compared pixel by pixel with the canvas. Then PNG, autosave after reload, and the project file
- * opened into an empty library.
+ * Stage 7, on the object library of v2: a scene of three library objects (different sizes and
+ * states) is downloaded as SVG; the paths of each object are those of its library file, the file is
+ * rendered on its own and compared pixel by pixel with the canvas. Then PNG, autosave after reload,
+ * and the project file opened into an empty library.
  */
 
 const TOLERANCE = 0.02
 const ZOOM = 0.5
 const SIZE = { width: 1200, height: 800 }
 
-/** Group clicks known from the extraction tests: gopher, lantern, gopher in a video call. */
+/** Library objects placed through the tiles, each in its own version. */
 const PICKS = [
-  { source: 's01', click: 5, name: 'Гофер справа' },
-  { source: 's12', click: 40, name: 'Фонарь' },
-  { source: 's16', click: 2, name: 'Гофер в видеозвонке' },
+  { object: 'book', size: 'Размер L', state: 'Главный', file: 'library/L/main/book.svg', slug: 'книга' },
+  { object: 'lamp', size: 'Размер L', state: 'Фоновый', file: 'library/L/bg/lamp.svg', slug: 'лампа' },
+  { object: 'coin', size: 'Размер S', state: 'Главный', file: 'library/S/main/coin.svg', slug: 'монета' },
 ]
 
 interface Obj {
@@ -55,22 +56,13 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
 
-  // Three components through the real "Add to library" form.
+  const tiles = page.locator('.library-tile')
+  await expect(tiles).toHaveCount(10)
   for (const pick of PICKS) {
-    await openSource(page, pick.source)
-    await page.evaluate(async (click) => {
-      const { useEditorStore } = await import('/src/store/editor.ts')
-      useEditorStore.getState().select(click - 1, false)
-    }, pick.click)
-    await page.getByLabel('Название').fill(pick.name)
-    await page.getByRole('button', { name: 'Добавить в библиотеку' }).click()
-    await expect(page.getByRole('status')).toHaveText('Добавлено в библиотеку')
+    await page.getByRole('radio', { name: pick.size }).click()
+    await page.getByRole('radio', { name: pick.state }).click()
+    await page.locator(`.library-tile[data-object="${pick.object}"] .library-preview`).click()
   }
-
-  await page.getByRole('tab', { name: 'Библиотека' }).click()
-  const tiles = page.locator('.library-preview')
-  await expect(tiles).toHaveCount(3)
-  for (let i = 0; i < 3; i++) await tiles.nth(i).click()
 
   // Spread them out, turn and mirror some; one more copy is hidden and must not be exported.
   await page.evaluate(async () => {
@@ -128,17 +120,29 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   expect(check.parseError).toBeNull()
   expect([check.viewBox, check.width, check.height]).toEqual(['0 0 1200 800', '1200', '800'])
   expect(check.background).toBe('#fff')
-  expect(check.defs).toBe(1)
+  // The library objects have no definitions and no references.
+  expect(check.defs).toBe(0)
   expect(check.duplicates).toEqual([])
-  expect(check.refs).toBeGreaterThan(0)
   expect(check.unresolved).toEqual([])
   expect(check.ui).toBe(0)
-  expect(check.objects.map((o) => [o.id, o.source])).toEqual([
-    ['гофер-справа', 's01'],
-    ['фонарь', 's12'],
-    ['гофер-в-видеозвонке', 's16'],
-  ])
+  expect(check.objects.map((o) => [o.id, o.source])).toEqual(PICKS.map((p) => [p.slug, 'library']))
   expect(check.objects.every((o) => o.transform?.startsWith('translate('))).toBe(true)
+
+  // Still vector and untouched: each object holds the paths of its library file, in the same order.
+  for (const pick of PICKS) {
+    const shapes = (svg: string, selector: string) =>
+      page.evaluate(
+        ([svg, selector]) =>
+          [...new DOMParser().parseFromString(svg, 'image/svg+xml').querySelectorAll(selector)].map((el) =>
+            ['d', 'fill', 'stroke', 'stroke-width', 'x', 'y', 'width', 'height'].map((a) => el.getAttribute(a)).join('|'),
+          ),
+        [svg, selector] as const,
+      )
+    const file = await (await page.request.get(`/${pick.file}`)).text()
+    const own = await shapes(file, 'svg > g > *')
+    expect(own.length, pick.file).toBeGreaterThan(10)
+    expect(await shapes(svg.text, `svg > g#${pick.slug} > g > *`), pick.file).toEqual(own)
+  }
 
   // Canvas at 50 % without the page border; then the downloaded file as an <img> of the same size
   // right over the page, so both go through the same pixel snapping and the same screenshot clip.
@@ -178,7 +182,8 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   const { painted, different } = await diff(page.context().browser()!, canvasPng.toString('base64'), filePng.toString('base64'), size)
   info.annotations.push({ type: 'различие', description: `${((different / painted) * 100).toFixed(3)} % из ${painted} px` })
   console.log(`[${info.project.name}] различие ${((different / painted) * 100).toFixed(3)} % из ${painted} px`)
-  expect(painted, 'на холсте нарисованы объекты').toBeGreaterThan(20_000)
+  // Line art on white: about 15 000 non-white pixels at 50 %.
+  expect(painted, 'на холсте нарисованы объекты').toBeGreaterThan(10_000)
   expect(different / painted, `различие ${((different / painted) * 100).toFixed(2)} %`).toBeLessThan(TOLERANCE)
 
   // PNG from the same SVG, at 2×.
@@ -191,7 +196,6 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
   // Autosave: the same objects and canvas size after a reload.
   await page.waitForTimeout(500)
   await page.reload()
-  await page.getByRole('tab', { name: 'Библиотека' }).click()
   await expect(page.locator('.canvas-svg [data-object-id]')).toHaveCount(3)
   expect(await canvasState(page)).toEqual(scene)
 
@@ -203,11 +207,10 @@ test('экспорт SVG совпадает с холстом; PNG; автосо
     const { useLibraryStore } = await import('/src/store/library.ts')
     for (const c of [...useLibraryStore.getState().components]) await useLibraryStore.getState().remove(c.id)
   })
-  await expect(tiles).toHaveCount(0)
+  await expect(page.locator('.canvas-svg [data-object-id]')).toHaveCount(0)
   expect((await canvasState(page)).objects).toEqual([])
 
   await page.getByTestId('open-project').setInputFiles({ name: project.name, mimeType: 'application/json', buffer: Buffer.from(project.text) })
-  await expect(tiles).toHaveCount(3)
   await expect(page.locator('.canvas-svg [data-object-id]')).toHaveCount(3)
   expect(await canvasState(page)).toEqual(scene)
   const reopened = await downloadText(page, () => menu(page, 'Экспорт', 'SVG'))

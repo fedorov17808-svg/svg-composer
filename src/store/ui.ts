@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
-export type LeftTab = 'sources' | 'library'
+/** 'sources' and 'library' are the gopher mode of v1: the code stays, the interface shows only 'objects'. */
+export type LeftTab = 'objects' | 'sources' | 'library'
 export type WorkspaceMode = 'source' | 'composition'
 
 interface UiState {
@@ -14,11 +15,11 @@ interface UiState {
 }
 
 export const useUiStore = create<UiState>((set) => ({
-  leftTab: 'sources',
-  workspaceMode: 'source',
+  leftTab: 'objects',
+  workspaceMode: 'composition',
   toast: null,
   // Components are placed on the canvas, so the library tab brings the composition forward.
-  setLeftTab: (leftTab) => set(leftTab === 'library' ? { leftTab, workspaceMode: 'composition' } : { leftTab }),
+  setLeftTab: (leftTab) => set(leftTab === 'sources' ? { leftTab } : { leftTab, workspaceMode: 'composition' }),
   setWorkspaceMode: (workspaceMode) => set({ workspaceMode }),
   showToast: (text) => set({ toast: { id: Date.now(), text } }),
   hideToast: () => set({ toast: null }),

@@ -1,18 +1,15 @@
 import { useUiStore, type LeftTab } from '../store/ui'
-import { LibraryGrid } from './LibraryGrid'
-import { SourcesGrid } from './SourcesGrid'
+import { ObjectLibraryGrid } from './ObjectLibraryGrid'
 
-const TABS: { id: LeftTab; label: string }[] = [
-  { id: 'sources', label: 'Исходники' },
-  { id: 'library', label: 'Библиотека' },
-]
+// The gopher tabs of v1 («Исходники», «Библиотека») are off: SourcesGrid and LibraryGrid stay in the code.
+const TABS: { id: LeftTab; label: string }[] = [{ id: 'objects', label: 'Библиотека объектов' }]
 
 export function LeftPanel() {
   const leftTab = useUiStore((s) => s.leftTab)
   const setLeftTab = useUiStore((s) => s.setLeftTab)
 
   return (
-    <aside className="panel panel-left" aria-label="Исходники и библиотека">
+    <aside className="panel panel-left" aria-label="Библиотека объектов">
       <div className="tabs" role="tablist">
         {TABS.map((tab) => (
           <button
@@ -34,7 +31,7 @@ export function LeftPanel() {
         id={`tabpanel-${leftTab}`}
         aria-labelledby={`tab-${leftTab}`}
       >
-        {leftTab === 'sources' ? <SourcesGrid /> : <LibraryGrid />}
+        <ObjectLibraryGrid />
       </div>
     </aside>
   )

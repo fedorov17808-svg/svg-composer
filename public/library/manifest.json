@@ -1,0 +1,371 @@
+[
+  {
+    "id": "book",
+    "name": "Книга",
+    "synonyms": [
+      "книжка",
+      "чтение",
+      "учёба",
+      "знания",
+      "дневник",
+      "блокнот"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/book.svg",
+          "width": 1445.9,
+          "height": 976.67
+        },
+        "bg": {
+          "file": "library/L/bg/book.svg",
+          "width": 1445.9,
+          "height": 976.67
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/book.svg",
+          "width": 722.96,
+          "height": 488.35
+        },
+        "bg": {
+          "file": "library/S/bg/book.svg",
+          "width": 722.96,
+          "height": 488.34
+        }
+      }
+    }
+  },
+  {
+    "id": "phone",
+    "name": "Телефон",
+    "synonyms": [
+      "смартфон",
+      "мобильный",
+      "приложение",
+      "связь",
+      "звонок"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/phone.svg",
+          "width": 796.54,
+          "height": 461.69
+        },
+        "bg": {
+          "file": "library/L/bg/phone.svg",
+          "width": 796.54,
+          "height": 461.68
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/phone.svg",
+          "width": 398.27,
+          "height": 230.85
+        },
+        "bg": {
+          "file": "library/S/bg/phone.svg",
+          "width": 398.27,
+          "height": 230.85
+        }
+      }
+    }
+  },
+  {
+    "id": "puzzle",
+    "name": "Пазл",
+    "synonyms": [
+      "головоломка",
+      "решение",
+      "задача",
+      "интеграция",
+      "совместимость"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/puzzle.svg",
+          "width": 544.17,
+          "height": 313.55
+        },
+        "bg": {
+          "file": "library/L/bg/puzzle.svg",
+          "width": 544.17,
+          "height": 313.55
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/puzzle.svg",
+          "width": 272.1,
+          "height": 156.78
+        },
+        "bg": {
+          "file": "library/S/bg/puzzle.svg",
+          "width": 272.1,
+          "height": 156.77
+        }
+      }
+    }
+  },
+  {
+    "id": "coin",
+    "name": "Монета",
+    "synonyms": [
+      "деньги",
+      "оплата",
+      "платёж",
+      "безопасность",
+      "сбережения"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/coin.svg",
+          "width": 286.68,
+          "height": 146.42
+        },
+        "bg": {
+          "file": "library/L/bg/coin.svg",
+          "width": 286.68,
+          "height": 146.42
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/coin.svg",
+          "width": 152.41,
+          "height": 77.83
+        },
+        "bg": {
+          "file": "library/S/bg/coin.svg",
+          "width": 152.41,
+          "height": 77.85
+        }
+      }
+    }
+  },
+  {
+    "id": "headphones",
+    "name": "Наушники",
+    "synonyms": [
+      "музыка",
+      "подкаст",
+      "звук",
+      "поддержка",
+      "аудио"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/headphones.svg",
+          "width": 888.16,
+          "height": 691.55
+        },
+        "bg": {
+          "file": "library/L/bg/headphones.svg",
+          "width": 888.16,
+          "height": 691.56
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/headphones.svg",
+          "width": 444.09,
+          "height": 345.78
+        },
+        "bg": {
+          "file": "library/S/bg/headphones.svg",
+          "width": 444.09,
+          "height": 345.77
+        }
+      }
+    }
+  },
+  {
+    "id": "lamp",
+    "name": "Лампа",
+    "synonyms": [
+      "настольная лампа",
+      "идея",
+      "свет",
+      "рабочее место"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/lamp.svg",
+          "width": 945.96,
+          "height": 1129
+        },
+        "bg": {
+          "file": "library/L/bg/lamp.svg",
+          "width": 945.96,
+          "height": 1128.99
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/lamp.svg",
+          "width": 472.98,
+          "height": 564.5
+        },
+        "bg": {
+          "file": "library/S/bg/lamp.svg",
+          "width": 472.98,
+          "height": 564.5
+        }
+      }
+    }
+  },
+  {
+    "id": "flowers",
+    "name": "Цветы в вазе",
+    "synonyms": [
+      "цветы",
+      "тюльпаны",
+      "ваза",
+      "букет",
+      "праздник",
+      "подарок"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/flowers.svg",
+          "width": 590.59,
+          "height": 747.12
+        },
+        "bg": {
+          "file": "library/L/bg/flowers.svg",
+          "width": 590.58,
+          "height": 747.11
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/flowers.svg",
+          "width": 323.28,
+          "height": 408.96
+        },
+        "bg": {
+          "file": "library/S/bg/flowers.svg",
+          "width": 323.28,
+          "height": 408.96
+        }
+      }
+    }
+  },
+  {
+    "id": "wallet",
+    "name": "Кошелёк",
+    "synonyms": [
+      "бумажник",
+      "деньги",
+      "финансы",
+      "покупки",
+      "бюджет"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/wallet.svg",
+          "width": 630.43,
+          "height": 396.32
+        },
+        "bg": {
+          "file": "library/L/bg/wallet.svg",
+          "width": 630.43,
+          "height": 396.33
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/wallet.svg",
+          "width": 315.22,
+          "height": 198.16
+        },
+        "bg": {
+          "file": "library/S/bg/wallet.svg",
+          "width": 315.22,
+          "height": 198.16
+        }
+      }
+    }
+  },
+  {
+    "id": "folder",
+    "name": "Папка",
+    "synonyms": [
+      "документы",
+      "файлы",
+      "архив",
+      "бумаги"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/folder.svg",
+          "width": 1240.62,
+          "height": 658.6
+        },
+        "bg": {
+          "file": "library/L/bg/folder.svg",
+          "width": 1240.62,
+          "height": 658.63
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/folder.svg",
+          "width": 620.31,
+          "height": 329.3
+        },
+        "bg": {
+          "file": "library/S/bg/folder.svg",
+          "width": 620.31,
+          "height": 329.31
+        }
+      }
+    }
+  },
+  {
+    "id": "pen",
+    "name": "Ручка",
+    "synonyms": [
+      "подпись",
+      "договор",
+      "письмо",
+      "заметки"
+    ],
+    "versions": {
+      "L": {
+        "main": {
+          "file": "library/L/main/pen.svg",
+          "width": 508.44,
+          "height": 285.42
+        },
+        "bg": {
+          "file": "library/L/bg/pen.svg",
+          "width": 508.44,
+          "height": 285.36
+        }
+      },
+      "S": {
+        "main": {
+          "file": "library/S/main/pen.svg",
+          "width": 254.22,
+          "height": 142.71
+        },
+        "bg": {
+          "file": "library/S/bg/pen.svg",
+          "width": 254.22,
+          "height": 142.71
+        }
+      }
+    }
+  }
+]

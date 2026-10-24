@@ -1,48 +1,30 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '../store/canvas'
 import { canLevelDown, canLevelUp, useEditorStore } from '../store/editor'
-import { useSourcesStore } from '../store/sources'
 import { useUiStore, type WorkspaceMode } from '../store/ui'
 import { CanvasToolbar } from './CanvasToolbar'
 import { CompositionCanvas } from './CompositionCanvas'
 import { NumberField } from './NumberField'
-import { SourceViewer } from './SourceViewer'
 
 const MODES: { id: WorkspaceMode; label: string }[] = [
   { id: 'source', label: 'Исходник' },
   { id: 'composition', label: 'Композиция' },
 ]
 
+// The source mode of v1 (gophers) is off: only the composition is shown; ModeSwitch, SourceControls
+// and SourceViewer stay in the code.
 export function Workspace() {
-  const mode = useUiStore((s) => s.workspaceMode)
-  const openSourceId = useEditorStore((s) => s.openSourceId)
-  const source = useSourcesStore((s) => s.sources.find((item) => item.id === openSourceId))
-
   return (
     <main className="workspace" aria-label="Рабочая область">
       <div className="workspace-toolbar">
-        <ModeSwitch />
-        {mode === 'composition' ? <CanvasControls /> : source ? <SourceControls title={source.title} /> : null}
+        <CanvasControls />
       </div>
-      {mode === 'source' && source && (
-        <div className="workspace-hint">
-          Клик — объект · Протяни рамку — несколько деталей · ↑/↓ — уровень
-        </div>
-      )}
-      {mode === 'composition' ? (
-        <CompositionCanvas />
-      ) : source ? (
-        <SourceViewer key={source.id} source={source} />
-      ) : (
-        <div className="workspace-stage">
-          <p className="empty">Выберите исходник слева, чтобы выделять элементы и сохранять их в библиотеку.</p>
-        </div>
-      )}
+      <CompositionCanvas />
     </main>
   )
 }
 
-function ModeSwitch() {
+export function ModeSwitch() {
   const mode = useUiStore((s) => s.workspaceMode)
   const setMode = useUiStore((s) => s.setWorkspaceMode)
   return (
@@ -81,7 +63,7 @@ function CanvasControls() {
   )
 }
 
-function SourceControls({ title }: { title: string }) {
+export function SourceControls({ title }: { title: string }) {
   const editor = useEditorStore()
   const { close, levelUp, levelDown, clearSelection } = editor
   const canGoUp = canLevelUp(editor)

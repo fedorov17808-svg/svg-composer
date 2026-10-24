@@ -64,12 +64,13 @@ test('холст: дублирование, удаление, отражение
   const tool = (label: string) =>
     page.getByRole('toolbar', { name: 'Правка холста' }).getByRole('button', { name: label, exact: true })
 
-  // Place both through the library tiles.
-  await page.getByRole('tab', { name: 'Библиотека' }).click()
-  const tiles = page.locator('.library-preview')
-  await expect(tiles).toHaveCount(2)
-  await tiles.nth(0).click()
-  await tiles.nth(1).click()
+  // Placed as a library tile does (the gopher tab «Библиотека» is off in v2; tiles of the object
+  // library are covered by object-library.spec.ts).
+  await page.evaluate(async (ids) => {
+    const { useLibraryStore } = await import('/src/store/library.ts')
+    const { useCanvasStore } = await import('/src/store/canvas.ts')
+    for (const id of ids) useCanvasStore.getState().add(useLibraryStore.getState().components.find((c) => c.id === id)!)
+  }, COMPONENTS.map((c) => c.id))
   let s = await state(page)
   expect(s.objects.map((o) => o.name)).toEqual(['Красная карточка', 'Зелёная карточка'])
   const [a, b] = s.objects
