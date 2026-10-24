@@ -1,5 +1,6 @@
 import type { LibraryComponent } from '../store/library'
 import type { CanvasObject, Size } from './canvas'
+import { parseAuto, type AutoSettings } from './compose'
 import { FORMAT_IDS, type FormatId } from './formats'
 import type { ObjectSize } from './libraryObjects'
 import { PaletteError, validatePalette, VARIANTS, type Palette } from './palette'
@@ -21,12 +22,15 @@ export interface Project {
   /** Canvas format and size of the library objects; missing in files saved before v2 stage 3. */
   canvasFormat?: FormatId
   objectSize?: ObjectSize
+  /** Settings of an automatic composition («Собрать»); missing if it was composed by hand. */
+  auto?: AutoSettings & { size: Size }
 }
 
 /** Format and object size of a composition, as saved with it. */
 export interface ProjectLayout {
   format: FormatId
   objectSize: ObjectSize
+  auto?: (AutoSettings & { size: Size }) | null
 }
 
 /** A file that cannot be opened; the message is for the user. */
@@ -43,6 +47,7 @@ export function createProject(size: Size, objects: CanvasObject[], library: Libr
     components: library.filter((c) => used.has(c.id)),
     ...(palette ? { palette: { id: palette.id, name: palette.name, background: [...palette.background], objects: [...palette.objects] } } : {}),
     ...(layout ? { canvasFormat: layout.format, objectSize: layout.objectSize } : {}),
+    ...(layout?.auto ? { auto: { ...layout.auto, objectIds: [...layout.auto.objectIds], size: { ...layout.auto.size } } } : {}),
   }
 }
 
@@ -145,6 +150,8 @@ export function parseProject(text: string): Project {
   if (data.objectSize !== undefined && data.objectSize !== 'L' && data.objectSize !== 'S') {
     throw new ProjectError(`Неизвестный размер объектов «${String(data.objectSize)}» (нужен L или S).`)
   }
+  const auto = data.auto === undefined ? undefined : parseAuto(data.auto)
+  if (auto === null) throw new ProjectError('Настройки автосборки повреждены.')
   const componentIds = new Set(components.map((c) => c.id))
   const objectIds = new Set<string>()
   const objects = data.objects.map((o, i) => {
@@ -166,5 +173,6 @@ export function parseProject(text: string): Project {
     ...(palette ? { palette } : {}),
     ...(data.canvasFormat !== undefined ? { canvasFormat: data.canvasFormat as FormatId } : {}),
     ...(data.objectSize !== undefined ? { objectSize: data.objectSize as ObjectSize } : {}),
+    ...(auto ? { auto } : {}),
   }
 }

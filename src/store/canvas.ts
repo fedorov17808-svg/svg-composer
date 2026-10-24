@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AutoSettings } from '../lib/compose'
 import { flippedX, type CanvasObject, type Point, type Size } from '../lib/canvas'
 import { DEFAULT_FORMAT, FORMATS, formatOf, objectSizeOf, relayout, swapSize, type FormatId } from '../lib/formats'
 import { emptyHistory, mapHistory, record, redo, undo, type History } from '../lib/history'
@@ -24,13 +25,17 @@ export interface View {
 export const DUPLICATE_OFFSET = 20
 
 /** What undo/redo restores. Selection comes back too, so undo shows what it changed. */
-export type Snapshot = Pick<CanvasState, 'objects' | 'size' | 'selectedId' | 'paletteId' | 'format' | 'objectSize'>
+export type Snapshot = Pick<CanvasState, 'objects' | 'size' | 'selectedId' | 'paletteId' | 'format' | 'objectSize' | 'auto'>
+
+/** An automatic composition: what it was built from and the canvas size it was built for. */
+export type AutoComposition = AutoSettings & { size: Size }
 
 /** How a composition is set up besides its objects; missing values come from the size and the objects. */
 export interface CompositionSettings {
   paletteId?: string
   format?: FormatId
   objectSize?: ObjectSize
+  auto?: AutoComposition | null
 }
 
 interface CanvasState {
@@ -42,6 +47,8 @@ interface CanvasState {
   format: FormatId
   /** L or S: the version every library object of the composition uses. */
   objectSize: ObjectSize
+  /** Set when the objects were laid out by «Собрать»; the format can then be rebuilt with the same seed. */
+  auto: AutoComposition | null
   selectedId: string | null
   stage: Size
   view: View
@@ -58,6 +65,8 @@ interface CanvasState {
    */
   swapComponent: (id: string, from: Size, to: LibraryComponent) => void
   setPalette: (paletteId: string) => void
+  /** Replaces the objects with an automatic composition, as one undo step. */
+  compose: (objects: CanvasObject[], auto: AutoComposition) => void
   /** A preset resizes the canvas and lays the objects out again; 'custom' only shows the size fields. */
   setFormat: (format: FormatId) => void
   /** Puts every library object in the other size, keeping its place and its size on screen. */
@@ -106,7 +115,8 @@ function visibleCenter({ size, stage, view }: Pick<CanvasState, 'size' | 'stage'
   return { x: Math.min(size.width, Math.max(0, x)), y: Math.min(size.height, Math.max(0, y)) }
 }
 
-const snapshot = ({ objects, size, selectedId, paletteId, format, objectSize }: Snapshot): Snapshot => ({
+const snapshot = ({ objects, size, selectedId, paletteId, format, objectSize, auto }: Snapshot): Snapshot => ({
+  auto,
   objects,
   size,
   selectedId,
@@ -130,7 +140,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
       (patch.size !== undefined && patch.size !== state.size) ||
       (patch.paletteId !== undefined && patch.paletteId !== state.paletteId) ||
       (patch.format !== undefined && patch.format !== state.format) ||
-      (patch.objectSize !== undefined && patch.objectSize !== state.objectSize)
+      (patch.objectSize !== undefined && patch.objectSize !== state.objectSize) ||
+      (patch.auto !== undefined && patch.auto !== state.auto)
     if (!changed || state.gesture) set(patch)
     else set({ ...patch, history: record(state.history, snapshot(state), mergeKey) })
   }
@@ -158,6 +169,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     paletteId: BASE_PALETTE.id,
     format: DEFAULT_FORMAT.id,
     objectSize: 'L',
+    auto: null,
     selectedId: null,
     stage: { width: 0, height: 0 },
     view: { zoom: 1, x: 0, y: 0 },
@@ -188,6 +200,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
       get().update(id, { componentId: to.id, x: center.x - (to.width * obj.scale) / 2, y: center.y - (to.height * obj.scale) / 2 })
     },
     setPalette: (paletteId) => commit({ paletteId }),
+    compose: (objects, auto) => commit({ objects, auto, selectedId: null }),
     setFormat: (format) => {
       const preset = FORMATS.find((f) => f.id === format)
       resize(preset?.size ?? get().size, format)
@@ -240,6 +253,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         paletteId: settings.paletteId ?? BASE_PALETTE.id,
         format: settings.format ?? formatOf(size),
         objectSize: settings.objectSize ?? objectSizeOf(objects),
+        auto: settings.auto ?? null,
         selectedId: null,
       })
       get().fit()

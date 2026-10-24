@@ -86,6 +86,16 @@ describe('project file', () => {
     expect(() => parseProject(JSON.stringify(bad))).toThrow('Неизвестный размер объектов «M»')
   })
 
+  it('keeps the settings of an automatic composition', () => {
+    const auto = { objectIds: ['book', 'lamp'], background: 'many' as const, seed: 4, size: { width: 2000, height: 1000 } }
+    const text = serializeProject(createProject({ width: 2000, height: 1000 }, OBJECTS, LIBRARY, undefined, { format: 'wide', objectSize: 'L', auto }))
+    expect(parseProject(text).auto).toEqual(auto)
+    expect(parseProject(saved())).not.toHaveProperty('auto')
+    const bad = JSON.parse(text)
+    bad.auto.background = 'lots'
+    expect(() => parseProject(JSON.stringify(bad))).toThrow('Настройки автосборки повреждены.')
+  })
+
   it('drops unknown fields', () => {
     const project = broken((d) => (d.objects[0].evil = '<script>'))()
     expect(project.objects[0]).not.toHaveProperty('evil')

@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { boxCenter, toCanvas } from '../lib/canvas'
 import { emptyHistory } from '../lib/history'
 import { DUPLICATE_OFFSET, useCanvasStore } from './canvas'
+import manifest from '../../public/library/manifest.json'
 import { useLibraryStore, type LibraryComponent } from './library'
+import { buildComposition, needsRecompose } from './compose'
+import { useObjectLibraryStore, type LibraryObject } from './objectLibrary'
 
 const component = (id: string): LibraryComponent => ({
   id,
@@ -124,6 +127,48 @@ describe('format and object size', () => {
     expect(store()).toMatchObject({ format: 'tall', objectSize: 'S', paletteId: 'lilac' })
     store().replace({ width: 1000, height: 1500 }, [], { format: 'custom', objectSize: 'S', paletteId: 'mint' })
     expect(store()).toMatchObject({ format: 'custom', objectSize: 'S', paletteId: 'mint' })
+  })
+})
+
+describe('automatic composition', () => {
+  beforeEach(() => {
+    useObjectLibraryStore.setState({ status: 'ready', objects: manifest as LibraryObject[] })
+    useLibraryStore.setState({ components: [] })
+  })
+
+  it('replaces the objects in one undo step; the same seed rebuilds the same layout for a new format', () => {
+    store().add(component('hand'), { x: 10, y: 10 })
+    store().setFormat('wide')
+    const before = store().objects
+    expect(buildComposition({ objectIds: ['book', 'lamp'], background: 'few', seed: 3 })).toBe(true)
+    const first = store().objects
+    expect(first.map((o) => o.componentId).slice(-2).sort()).toEqual(['lib-L-main-book', 'lib-L-main-lamp'])
+    expect(store().auto).toEqual({ objectIds: ['book', 'lamp'], background: 'few', seed: 3, size: { width: 2000, height: 1000 } })
+    expect(needsRecompose(store())).toBe(false)
+
+    store().setFormat('tall')
+    expect(needsRecompose(store())).toBe(true)
+    buildComposition(store().auto!)
+    expect(needsRecompose(store())).toBe(false)
+    const tall = store().objects
+    store().setFormat('wide')
+    buildComposition(store().auto!)
+    const strip = (objects: typeof first) => objects.map(({ id: _id, ...o }) => o)
+    expect(strip(store().objects)).toEqual(strip(first))
+    expect(strip(tall)).not.toEqual(strip(first))
+
+    store().undo() // rebuild
+    store().undo() // format
+    store().undo() // rebuild for tall
+    store().undo() // format
+    store().undo() // build
+    expect(store().objects).toEqual(before)
+    expect(store().auto).toBeNull()
+  })
+
+  it('does nothing without objects', () => {
+    expect(buildComposition({ objectIds: [], background: 'few', seed: 1 })).toBe(false)
+    expect(store().history.past).toHaveLength(0)
   })
 })
 

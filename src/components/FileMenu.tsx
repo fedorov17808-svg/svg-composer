@@ -102,10 +102,10 @@ export function FileMenu() {
   }, [])
 
   const saveProject = () => {
-    const { size, objects, paletteId, format, objectSize } = useCanvasStore.getState()
+    const { size, objects, paletteId, format, objectSize, auto } = useCanvasStore.getState()
     // The saved scheme, not a palette still being edited in the form.
     const palette = findPalette(usePalettesStore.getState(), paletteId)
-    const project = createProject(size, objects, useLibraryStore.getState().components, palette, { format, objectSize })
+    const project = createProject(size, objects, useLibraryStore.getState().components, palette, { format, objectSize, auto })
     download(new Blob([serializeProject(project)], { type: 'application/json' }), exportFileName('json', new Date(), 'project'))
   }
 
@@ -120,6 +120,7 @@ export function FileMenu() {
         paletteId: project.palette?.id,
         format: project.canvasFormat,
         objectSize: project.objectSize,
+        auto: project.auto ?? null,
       })
       useUiStore.getState().setWorkspaceMode('composition')
       useUiStore.getState().showToast(`${kind} «${name}» открыт`)

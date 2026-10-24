@@ -5,6 +5,7 @@ import { useCanvasStore } from '../store/canvas'
 import { canLevelDown, canLevelUp, useEditorStore } from '../store/editor'
 import { useUiStore, type WorkspaceMode } from '../store/ui'
 import { CanvasToolbar } from './CanvasToolbar'
+import { ComposePanel } from './ComposePanel'
 import { CompositionCanvas } from './CompositionCanvas'
 import { NumberField } from './NumberField'
 import { PaletteBar } from './PaletteBar'
@@ -23,6 +24,7 @@ export function Workspace() {
       <div className="workspace-toolbar">
         <CanvasControls />
       </div>
+      <ComposePanel />
       <FormatBar />
       <PaletteBar />
       <CompositionCanvas />

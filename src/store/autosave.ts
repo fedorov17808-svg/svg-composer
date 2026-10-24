@@ -1,5 +1,6 @@
 import { createStore, get, set } from 'idb-keyval'
 import type { CanvasObject, Size } from '../lib/canvas'
+import { parseAuto, type AutoSettings } from '../lib/compose'
 import { FORMAT_IDS, formatOf, objectSizeOf, type FormatId } from '../lib/formats'
 import type { ObjectSize } from '../lib/libraryObjects'
 import { useCanvasStore } from './canvas'
@@ -17,6 +18,8 @@ interface Saved {
   /** Missing in compositions saved before v2 stage 3. */
   format?: FormatId
   objectSize?: ObjectSize
+  /** Missing in compositions saved before v2 stage 4. */
+  auto?: (AutoSettings & { size: Size }) | null
 }
 
 const isSaved = (v: unknown): v is Saved =>
@@ -37,6 +40,7 @@ export async function startAutosave() {
         selectedId: null,
         format: saved.format && FORMAT_IDS.includes(saved.format) ? saved.format : formatOf(saved.size),
         objectSize: saved.objectSize === 'L' || saved.objectSize === 'S' ? saved.objectSize : objectSizeOf(saved.objects),
+        auto: parseAuto(saved.auto),
         ...(saved.paletteId ? { paletteId: saved.paletteId } : {}),
       })
       useCanvasStore.getState().fit()
@@ -49,13 +53,13 @@ export async function startAutosave() {
   const save = () => {
     clearTimeout(timer)
     timer = undefined
-    const { size, objects, paletteId, format, objectSize } = useCanvasStore.getState()
-    set(KEY, { size, objects, paletteId, format, objectSize } satisfies Saved, db).catch((err) =>
+    const { size, objects, paletteId, format, objectSize, auto } = useCanvasStore.getState()
+    set(KEY, { size, objects, paletteId, format, objectSize, auto } satisfies Saved, db).catch((err) =>
       console.warn('Автосохранение: не удалось записать композицию', err),
     )
   }
   useCanvasStore.subscribe((state, prev) => {
-    const same = (['objects', 'size', 'paletteId', 'format', 'objectSize'] as const).every((key) => state[key] === prev[key])
+    const same = (['objects', 'size', 'paletteId', 'format', 'objectSize', 'auto'] as const).every((key) => state[key] === prev[key])
     if (same) return
     clearTimeout(timer)
     timer = setTimeout(save, DELAY)

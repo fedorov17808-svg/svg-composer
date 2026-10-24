@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "seed": "node scripts/seed.mjs",
     "objects": "node scripts/objects.mjs",
-    "import-library": "node scripts/import-library.mjs"
+    "import-library": "node scripts/import-library.mjs",
+    "auto-layout-sheet": "node scripts/auto-layout.mjs"
   },
   "dependencies": {
     "idb-keyval": "^6.3.0",
