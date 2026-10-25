@@ -1,8 +1,8 @@
-import { createStore, get, set } from 'idb-keyval'
+import { createStore, del, get, set } from 'idb-keyval'
 import type { CanvasObject, Size } from '../lib/canvas'
 import { parseAuto, type AutoSettings } from '../lib/compose'
 import { FORMAT_IDS, formatOf, objectSizeOf, type FormatId } from '../lib/formats'
-import type { ObjectSize } from '../lib/libraryObjects'
+import { isLibraryVersionId, type ObjectSize } from '../lib/libraryObjects'
 import { useCanvasStore } from './canvas'
 import { showDemo } from './demo'
 
@@ -26,6 +26,10 @@ interface Saved {
 const isSaved = (v: unknown): v is Saved =>
   typeof v === 'object' && v !== null && Array.isArray((v as Saved).objects) && typeof (v as Saved).size?.width === 'number'
 
+/** A composition of the object library only: one object of anything else (a gopher of v1) and it is not ours. */
+const isCurrent = (saved: Saved) =>
+  saved.objects.every((o) => typeof o?.componentId === 'string' && isLibraryVersionId(o.componentId))
+
 /**
  * Restores the last composition, then saves objects, canvas size, format, object size and color scheme after every change. History is
  * session state and is not kept.
@@ -35,7 +39,10 @@ export async function startAutosave() {
   try {
     const saved = await get<unknown>(KEY, db)
     // Only if nothing has been placed while the database was opening.
-    if (isSaved(saved) && useCanvasStore.getState().objects.length === 0) {
+    if (isSaved(saved) && !isCurrent(saved)) {
+      // Left over from v1 (the migration missed it): dropped, and the demo is shown instead.
+      await del(KEY, db)
+    } else if (isSaved(saved) && useCanvasStore.getState().objects.length === 0) {
       useCanvasStore.setState({
         size: saved.size,
         objects: saved.objects,
@@ -47,7 +54,7 @@ export async function startAutosave() {
       })
       useCanvasStore.getState().fit()
     }
-    restored = isSaved(saved)
+    restored = isSaved(saved) && isCurrent(saved)
   } catch (err) {
     console.warn('Автосохранение: не удалось прочитать композицию', err)
   }

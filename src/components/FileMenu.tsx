@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isLibraryVersionId } from '../lib/libraryObjects'
 import { exportFileName, exportSvg } from '../lib/exportSvg'
 import { createProject, parseProject, ProjectError, serializeProject } from '../lib/project'
 import { useCanvasStore } from '../store/canvas'
@@ -116,7 +117,14 @@ export function FileMenu() {
   const openProject = async (kind: 'Проект' | 'Пример', name: string, text: () => Promise<string>) => {
     setError(null)
     try {
-      const project = parseProject(await text())
+      const parsed = parseProject(await text())
+      // Only objects of the object library: a gopher of a v1 project has no place here and is skipped.
+      const objects = parsed.objects.filter((o) => isLibraryVersionId(o.componentId))
+      const skipped = parsed.objects.length - objects.length
+      if (parsed.objects.length > 0 && objects.length === 0) {
+        throw new ProjectError('Это проект первой версии (гоферы): в библиотеке объектов их нет.')
+      }
+      const project = { ...parsed, objects, components: parsed.components.filter((c) => isLibraryVersionId(c.id)) }
       await useLibraryStore.getState().addMissing(project.components)
       // A palette of the user that is not here yet comes with the project.
       if (project.palette) await usePalettesStore.getState().addMissing(project.palette)
@@ -127,7 +135,7 @@ export function FileMenu() {
         auto: project.auto ?? null,
       })
       useUiStore.getState().setWorkspaceMode('composition')
-      useUiStore.getState().showToast(`${kind} «${name}» открыт`)
+      useUiStore.getState().showToast(`${kind} «${name}» открыт${skipped ? `; пропущено объектов не из библиотеки: ${skipped}` : ''}`)
     } catch (err) {
       const reason = err instanceof ProjectError ? err.message : `Ошибка: ${err instanceof Error ? err.message : String(err)}`
       setError(`Не удалось открыть «${name}». ${reason}`)

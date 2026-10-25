@@ -30,3 +30,6 @@ export function nativeScale(componentId: string, canvas: { width: number; height
   const version = parseVersionId(componentId)
   return version ? (Math.sqrt(canvas.width * canvas.height) / SHEET_PER_SIDE) * SHEET_SCALE[version.size] : null
 }
+
+/** Whether a component belongs to the object library of v2 (not a gopher of v1). */
+export const isLibraryVersionId = (id: string) => parseVersionId(id) !== null
