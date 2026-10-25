@@ -8,6 +8,7 @@ const coin: LibraryObject = {
   id: 'coin',
   name: 'Монета',
   synonyms: [],
+  tags: [],
   versions: { L: { main: version, bg: version }, S: { main: version, bg: version } },
 }
 const file = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20" width="30" height="20" fill="none">

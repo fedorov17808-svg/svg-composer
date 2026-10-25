@@ -1,6 +1,7 @@
 import type { LibraryObject } from '../store/objectLibrary'
 import { autoLayout, BACKGROUND_AMOUNTS, type BackgroundAmount } from './autoLayout'
 import type { CanvasObject, Size } from './canvas'
+import type { Reason } from './metaphor'
 import { versionId, type ObjectSize } from './libraryObjects'
 
 /** What an automatic composition was built from; the same settings give the same composition. */
@@ -8,6 +9,8 @@ export interface AutoSettings {
   objectIds: string[]
   background: BackgroundAmount
   seed: number
+  /** Scenario 1: the metaphor the objects were picked for, why each, and who picked them. */
+  metaphor?: { text: string; reasons: Reason[]; source: 'local' | 'ai' }
 }
 
 let counter = 0
@@ -52,7 +55,18 @@ export function parseAuto(value: unknown): (AutoSettings & { size: Size }) | nul
     size.width > 0 &&
     size.height > 0
   if (!ok) return null
+  const m = v.metaphor as Record<string, unknown> | undefined
+  const metaphorOk =
+    m === undefined ||
+    (typeof m === 'object' &&
+      m !== null &&
+      typeof m.text === 'string' &&
+      (m.source === 'local' || m.source === 'ai') &&
+      Array.isArray(m.reasons) &&
+      m.reasons.every((r) => typeof r?.objectId === 'string' && typeof r?.text === 'string'))
+  if (!metaphorOk) return null
   return {
+    ...(m ? { metaphor: { text: m.text as string, source: m.source as 'local' | 'ai', reasons: (m.reasons as Reason[]).map((r) => ({ objectId: r.objectId, text: r.text })) } } : {}),
     objectIds: [...(v.objectIds as string[])],
     background: v.background as BackgroundAmount,
     seed: v.seed as number,

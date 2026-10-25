@@ -1143,6 +1143,23 @@ button {
   border-style: dashed;
 }
 
+.chip-reason {
+  border-color: transparent;
+  background: #f3f0ff;
+}
+
+.compose-source {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.compose-empty {
+  padding: 4px 4px 4px 10px;
+  border-radius: 6px;
+  background: #fff6db;
+  color: #6b5200;
+}
+
 .chip-unknown {
   border-color: #e0a0a0;
   background: #fff1f1;

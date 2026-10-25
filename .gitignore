@@ -31,3 +31,7 @@ dist-ssr
 /playwright-report/
 .vercel
 scripts/out
+
+# Secrets: ANTHROPIC_API_KEY for /api/metaphor
+.env
+.env.*

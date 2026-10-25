@@ -47,7 +47,7 @@ export function createProject(size: Size, objects: CanvasObject[], library: Libr
     components: library.filter((c) => used.has(c.id)),
     ...(palette ? { palette: { id: palette.id, name: palette.name, background: [...palette.background], objects: [...palette.objects] } } : {}),
     ...(layout ? { canvasFormat: layout.format, objectSize: layout.objectSize } : {}),
-    ...(layout?.auto ? { auto: { ...layout.auto, objectIds: [...layout.auto.objectIds], size: { ...layout.auto.size } } } : {}),
+    ...(layout?.auto ? { auto: structuredClone(layout.auto) } : {}),
   }
 }
 

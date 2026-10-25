@@ -17,6 +17,8 @@ export interface LibraryObject {
   id: string
   name: string
   synonyms: string[]
+  /** Meanings and associations, for picking objects by a metaphor. */
+  tags: string[]
   versions: Record<ObjectSize, Record<ObjectState, ObjectVersion>>
 }
 

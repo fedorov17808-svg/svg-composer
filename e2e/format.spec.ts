@@ -108,12 +108,14 @@ test('форматы, выход за край, L ↔ S, подсказка дл
   const outside = await page.evaluate(
     ({ id, right }) => {
       const b = document.querySelector(`[data-ghost-id="${id}"]`)!.getBoundingClientRect()
+      const hits: { x: number; y: number }[] = []
       for (let x = Math.ceil(right) + 4; x < b.right; x += 2) {
         for (let y = b.top; y < b.bottom; y += 2) {
-          if (document.elementFromPoint(x, y)?.closest(`[data-ghost-id="${id}"]`)) return { x, y }
+          if (document.elementFromPoint(x, y)?.closest(`[data-ghost-id="${id}"]`)) hits.push({ x, y })
         }
       }
-      return null
+      // The middle one, not a pixel at the very edge of a line.
+      return hits[Math.floor(hits.length / 2)] ?? null
     },
     { id: lamp.id, right: pageBox.x + pageBox.width },
   )

@@ -14,9 +14,11 @@
     "seed": "node scripts/seed.mjs",
     "objects": "node scripts/objects.mjs",
     "import-library": "node scripts/import-library.mjs",
-    "auto-layout-sheet": "node scripts/auto-layout.mjs"
+    "auto-layout-sheet": "node scripts/auto-layout.mjs",
+    "metaphors-sheet": "node scripts/metaphors.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "idb-keyval": "^6.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
