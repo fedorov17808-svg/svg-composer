@@ -4,7 +4,15 @@ import { create } from 'zustand'
 export type LeftTab = 'objects' | 'sources' | 'library'
 export type WorkspaceMode = 'source' | 'composition'
 
+/** From this width the three columns fit; below it the side panels start collapsed. */
+export const WIDE_MIN = 1024
+
+export type PanelSide = 'left' | 'right'
+
 interface UiState {
+  /** Side panels open or collapsed to a rail; a collapsed panel takes a narrow column, never overlaps the canvas. */
+  panels: Record<PanelSide, boolean>
+  setPanel: (side: PanelSide, open: boolean) => void
   leftTab: LeftTab
   workspaceMode: WorkspaceMode
   toast: { id: number; text: string } | null
@@ -17,7 +25,11 @@ interface UiState {
   hideToast: () => void
 }
 
+const isWide = () => window.innerWidth >= WIDE_MIN
+
 export const useUiStore = create<UiState>((set) => ({
+  panels: { left: isWide(), right: isWide() },
+  setPanel: (side, open) => set((s) => ({ panels: { ...s.panels, [side]: open } })),
   leftTab: 'objects',
   workspaceMode: 'composition',
   toast: null,

@@ -20,6 +20,14 @@ describe('/api/metaphor', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  it('GET tells the page whether there is a key, and never calls the model', async () => {
+    const { client, create } = fakeClient({ stop_reason: 'end_turn', text: '{}' })
+    const get = () => new Request('http://x/api/metaphor')
+    expect(await (await handle(get(), undefined, client)).json()).toEqual({ enabled: false })
+    expect(await (await handle(get(), 'key', client)).json()).toEqual({ enabled: true })
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('asks for JSON limited to the library ids and passes the answer on', async () => {
     const answer = { objects: [{ id: 'coin', reason: 'финансы' }, { id: 'book', reason: 'грамотность' }] }
     const { client, create } = fakeClient({ stop_reason: 'end_turn', text: JSON.stringify(answer) })
@@ -41,7 +49,7 @@ describe('/api/metaphor', () => {
     const { client } = fakeClient({ stop_reason: 'end_turn', text: '{}' })
     expect((await handle(post({ text: '' }), 'key', client)).status).toBe(400)
     expect((await handle(post({ text: 'x'.repeat(201) }), 'key', client)).status).toBe(400)
-    expect((await handle(new Request('http://x', { method: 'GET' }), 'key', client)).status).toBe(405)
+    expect((await handle(new Request('http://x', { method: 'PUT' }), 'key', client)).status).toBe(405)
   })
 
   it('schema: no other fields, every item needs an id and a reason', () => {

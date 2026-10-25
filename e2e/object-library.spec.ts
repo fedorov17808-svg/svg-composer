@@ -93,6 +93,11 @@ for (const width of [1024, 1440]) {
     await page.keyboard.press('Escape')
     await expect(help).toHaveCount(0)
     await page.getByRole('button', { name: 'Проект' }).click()
-    await expect(page.getByRole('menuitem')).toHaveText(['Открыть проект…', 'Сохранить проект'])
+    // Project file first, then the 9 examples; no gopher examples and no demo reset.
+    const items = page.getByRole('menuitem')
+    await expect(items).toHaveCount(11)
+    await expect(items.first()).toHaveText('Открыть проект…')
+    await expect(items.nth(1)).toHaveText('Сохранить проект')
+    await expect(items).not.toContainText(['Сбросить к демо…', 'Гоферы на празднике'])
   })
 }

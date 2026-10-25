@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BACKGROUND_AMOUNTS, MAX_MAIN, type BackgroundAmount } from '../lib/autoLayout'
-import { pickObjects, type Pick } from '../lib/metaphor'
+import { isAiEnabled, pickLocal, pickObjects, type Pick } from '../lib/metaphor'
 import { normalizeName, parseNames, type NameMatch } from '../lib/objectNames'
 import { useCanvasStore } from '../store/canvas'
 import { buildComposition, needsRecompose } from '../store/compose'
@@ -57,9 +57,15 @@ export function ComposePanel() {
   const pickAndBuild = async (value = metaphor) => {
     if (!value.trim()) return
     setNotFound(null)
-    setPicking(true)
-    const pick = await pickObjects(value, library)
-    setPicking(false)
+    // Without a key the pick is local: no waiting, no «Подбираю…».
+    let pick: Pick
+    if (isAiEnabled()) {
+      setPicking(true)
+      pick = await pickObjects(value, library)
+      setPicking(false)
+    } else {
+      pick = pickLocal(value, library)
+    }
     if (pick.objectIds.length === 0) {
       setNotFound(value.trim())
       return
@@ -101,8 +107,10 @@ export function ComposePanel() {
             onKeyDown={(e) => e.key === 'Enter' && canBuild && onBuild()}
           />
         )}
-        <span className="muted">Фоновые объекты</span>
-        <Segmented label="Фоновые объекты" items={BACKGROUND_AMOUNTS} value={background} onChange={setBackground} />
+        <span className="compose-group">
+          <span className="muted">Фоновые объекты</span>
+          <Segmented label="Фоновые объекты" items={BACKGROUND_AMOUNTS} value={background} onChange={setBackground} />
+        </span>
         <button className="btn btn-primary" disabled={!canBuild} onClick={onBuild}>
           {picking ? 'Подбираю…' : 'Собрать'}
         </button>

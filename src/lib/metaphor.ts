@@ -176,12 +176,32 @@ export function parseAiPick(value: unknown, ids: string[]): Pick | null {
 /** How long the page waits for /api/metaphor before it picks locally. */
 const AI_TIMEOUT = 8000
 
+/** Whether the server has a key. Until it says so, and without a key, the pick is local and instant. */
+let aiEnabled = false
+export const isAiEnabled = () => aiEnabled
+export const setAiEnabled = (value: boolean) => {
+  aiEnabled = value
+}
+
+/** Asks the server once whether Claude is on (GET /api/metaphor → `{ enabled }`). Never throws. */
+export async function probeAi(endpoint = '/api/metaphor'): Promise<boolean> {
+  try {
+    const res = await fetch(endpoint, { signal: AbortSignal.timeout(AI_TIMEOUT) })
+    const body = res.ok ? ((await res.json()) as { enabled?: unknown }) : null
+    aiEnabled = body?.enabled === true
+  } catch {
+    aiEnabled = false
+  }
+  return aiEnabled
+}
+
 /**
- * Claude through the server function when it is there and has a key; the local pick otherwise
- * (no server, no key, an error, a timeout or an answer that does not validate). Never throws.
+ * Claude through the server function when it has a key; the local pick otherwise (no key, no
+ * server, an error, a timeout or an answer that does not validate). Never throws.
  */
 export async function pickObjects(text: string, objects: MeaningObject[], endpoint = '/api/metaphor'): Promise<Pick> {
   const local = () => pickLocal(text, objects)
+  if (!aiEnabled) return local()
   try {
     const res = await fetch(endpoint, {
       method: 'POST',

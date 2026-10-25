@@ -1,4 +1,4 @@
-// Vercel function POST /api/metaphor: Claude reads a metaphor and names objects of the library.
+// Vercel function /api/metaphor (GET: is the key set; POST: Claude reads a metaphor and names objects of the library).
 // The key (ANTHROPIC_API_KEY) lives only here, on the server. Without it, or on any error, the
 // answer is not 200 and the page picks objects locally (src/lib/metaphor.ts).
 import Anthropic from '@anthropic-ai/sdk'
@@ -63,7 +63,9 @@ const json = (status: number, body: unknown) => Response.json(body, { status })
 
 /** The handler, with the key and the client passed in for tests. */
 export async function handle(request: Request, key = process.env.ANTHROPIC_API_KEY, client?: Anthropic): Promise<Response> {
-  if (request.method !== 'POST') return json(405, { error: 'POST only' })
+  // The page asks once on load whether Claude is on, so that without a key it never waits for one.
+  if (request.method === 'GET') return json(200, { enabled: Boolean(key) })
+  if (request.method !== 'POST') return json(405, { error: 'GET or POST only' })
   if (!key) return json(503, { error: 'ANTHROPIC_API_KEY is not set' })
   let text: unknown
   try {
@@ -79,6 +81,10 @@ export async function handle(request: Request, key = process.env.ANTHROPIC_API_K
     console.error('metaphor:', err instanceof Error ? err.message : err)
     return json(502, { error: 'model call failed' })
   }
+}
+
+export function GET(request: Request) {
+  return handle(request)
 }
 
 export function POST(request: Request) {

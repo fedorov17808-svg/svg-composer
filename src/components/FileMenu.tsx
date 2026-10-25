@@ -73,6 +73,10 @@ async function downloadPng() {
 interface Example {
   id: string
   title: string
+  /** The metaphor the example was built for: the menu groups by it. */
+  group: string
+  /** Format, scheme and object size, as the menu item says it. */
+  label: string
   file: string
 }
 
@@ -156,15 +160,16 @@ export function FileMenu() {
     }
   }
 
-  // The gopher examples and the demo library of v1 are off until the examples of the object library.
-  const gopherEntries: MenuEntry[] = [
-    ...(examples.length ? ['Примеры', ...examples.map((ex) => ({ label: ex.title, onSelect: () => void openExample(ex) }))] : []),
-    'Библиотека',
-    { label: 'Сбросить к демо…', onSelect: () => setDialog('reset') },
-  ]
+  // Examples of the object library, a section per metaphor. The demo library of v1 is off.
+  const exampleEntries: MenuEntry[] = [...new Set(examples.map((ex) => ex.group))].flatMap((group) => [
+    `Открыть пример: ${group}`,
+    ...examples.filter((ex) => ex.group === group).map((ex) => ({ label: ex.label, onSelect: () => void openExample(ex) })),
+  ])
+  const gopherEntries: MenuEntry[] = ['Библиотека', { label: 'Сбросить к демо…', onSelect: () => setDialog('reset') }]
   const projectEntries: MenuEntry[] = [
     { label: 'Открыть проект…', onSelect: () => inputRef.current?.click() },
     { label: 'Сохранить проект', onSelect: saveProject },
+    ...exampleEntries,
     ...(SHOW_GOPHERS ? gopherEntries : []),
   ]
 

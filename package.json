@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "seed": "node scripts/seed.mjs",
+    "examples": "node scripts/examples.mjs",
     "objects": "node scripts/objects.mjs",
     "import-library": "node scripts/import-library.mjs",
     "auto-layout-sheet": "node scripts/auto-layout.mjs",

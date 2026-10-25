@@ -4,6 +4,7 @@ import { parseAuto, type AutoSettings } from '../lib/compose'
 import { FORMAT_IDS, formatOf, objectSizeOf, type FormatId } from '../lib/formats'
 import type { ObjectSize } from '../lib/libraryObjects'
 import { useCanvasStore } from './canvas'
+import { showDemo } from './demo'
 
 /** A separate database: a new store cannot be added to the existing library database. */
 const db = createStore('svg-composer-composition', 'composition')
@@ -30,6 +31,7 @@ const isSaved = (v: unknown): v is Saved =>
  * session state and is not kept.
  */
 export async function startAutosave() {
+  let restored = false
   try {
     const saved = await get<unknown>(KEY, db)
     // Only if nothing has been placed while the database was opening.
@@ -45,9 +47,13 @@ export async function startAutosave() {
       })
       useCanvasStore.getState().fit()
     }
+    restored = isSaved(saved)
   } catch (err) {
     console.warn('Автосохранение: не удалось прочитать композицию', err)
   }
+
+  // Nothing saved yet: the first run shows a built composition (not after a deliberately emptied one).
+  if (!restored) await showDemo()
 
   let timer: ReturnType<typeof setTimeout> | undefined
   const save = () => {

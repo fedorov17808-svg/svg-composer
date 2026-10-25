@@ -19,7 +19,12 @@ const state = (page: Page) =>
 const mains = (objects: string[]) => objects.filter((id) => id.includes('-main-')).map((id) => id.replace(/^lib-[LS]-main-/, ''))
 
 async function open(page: Page, api: { status: number; body: unknown }) {
-  await page.route('**/api/metaphor', (route) => route.fulfill({ status: api.status, contentType: 'application/json', body: JSON.stringify(api.body) }))
+  // GET tells the page whether the server has a key; POST is the pick itself.
+  await page.route('**/api/metaphor', (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: api.status === 200 }) })
+      : route.fulfill({ status: api.status, contentType: 'application/json', body: JSON.stringify(api.body) }),
+  )
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await expect(page.locator('.library-tile')).toHaveCount(10)
@@ -95,7 +100,7 @@ test('метафора через Claude: ответ сервера, помет�
 
   // An id outside the library: the answer is rejected as a whole.
   await page.unroute('**/api/metaphor')
-  await page.route('**/api/metaphor', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ objects: [{ id: 'laptop', reason: 'работа' }] }) }))
+  await page.route('**/api/metaphor', (route) => route.request().method() === 'GET' ? route.fulfill({ status: 200, contentType: 'application/json', body: '{"enabled":true}' }) : route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ objects: [{ id: 'laptop', reason: 'работа' }] }) }))
   await panel.getByRole('textbox', { name: 'Метафора или заголовок' }).fill('Удалённая работа из дома')
   await panel.getByRole('button', { name: 'Собрать' }).click()
   await expect(why).toContainText('подбор: локальный')

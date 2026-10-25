@@ -107,10 +107,77 @@ button {
 }
 
 .app-body {
+  --side: clamp(200px, 20vw, 280px);
+  --rail: 36px;
   display: grid;
-  grid-template-columns: clamp(220px, 22vw, 280px) minmax(0, 1fr) clamp(220px, 22vw, 280px);
+  grid-template-columns: var(--side) minmax(0, 1fr) var(--side);
   flex: 1;
   min-height: 0;
+}
+
+/* A collapsed panel is a narrow column of the grid, so the canvas only gets wider, never covered. */
+.app-body.left-collapsed {
+  grid-template-columns: var(--rail) minmax(0, 1fr) var(--side);
+}
+
+.app-body.right-collapsed {
+  grid-template-columns: var(--side) minmax(0, 1fr) var(--rail);
+}
+
+.app-body.left-collapsed.right-collapsed {
+  grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail);
+}
+
+.panel {
+  min-width: 0;
+}
+
+.panel-rail {
+  align-items: center;
+  overflow: hidden;
+}
+
+.rail-button {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.rail-button:hover {
+  color: var(--accent);
+}
+
+.rail-label {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.panel-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px 0;
+}
+
+.panel-collapse {
+  flex: none;
+  align-self: center;
+  margin: 0 4px;
+}
+
+.tabs .panel-collapse {
+  margin-right: 8px;
 }
 
 .panel {
@@ -229,6 +296,13 @@ button {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* Controls above the canvas scroll when the window is short; the canvas keeps a usable height. */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.workspace > .workspace-stage {
+  flex: 1 0 260px;
 }
 
 .workspace-toolbar {
@@ -1111,6 +1185,13 @@ button {
   gap: 6px;
 }
 
+.compose-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
 .compose-input {
   flex: 1 1 160px;
   min-width: 140px;
@@ -1321,4 +1402,33 @@ button {
 .version-note {
   margin: 0;
   font-size: 11px;
+}
+
+/* Narrow windows: the rows of chips stay one line each and scroll sideways, so the canvas is not
+   pushed below the fold. Below 1024 px the panels are rails and the rows of format and scheme do the same. */
+@media (max-width: 1100px) {
+  .compose-row.chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .compose-row.chips > * {
+    flex: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .format-bar,
+  .palette-bar,
+  .palette-list {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .format-bar > *,
+  .palette-bar > * {
+    flex: none;
+  }
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import manifest from '../../public/library/manifest.json'
 import { composeObjects } from './compose'
 import { FORMATS } from './formats'
-import { MAX_PICK, parseAiPick, pickLocal, pickObjects, stem } from './metaphor'
+import { MAX_PICK, parseAiPick, pickLocal, pickObjects, probeAi, setAiEnabled, stem } from './metaphor'
 import type { LibraryObject } from '../store/objectLibrary'
 
 const library = manifest as LibraryObject[]
@@ -82,7 +82,27 @@ describe('Claude pick', () => {
     ]) expect(parseAiPick(bad, ids)).toBeNull()
   })
 
+  it('without a key the pick is local and never touches the network', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    setAiEnabled(false)
+    expect(await pickObjects('Идея', library)).toEqual(pickLocal('Идея', library))
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('probeAi turns Claude on only when the server says it has a key', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ enabled: true })))
+    expect(await probeAi()).toBe(true)
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ enabled: false })))
+    expect(await probeAi()).toBe(false)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })))
+    expect(await probeAi()).toBe(false)
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline') }))
+    expect(await probeAi()).toBe(false)
+  })
+
   it('falls back to the local pick quietly: no server, an error, an invalid answer', async () => {
+    setAiEnabled(true)
     const local = pickLocal('Идея', library)
     for (const fetch of [
       vi.fn(async () => new Response('{}', { status: 404 })),

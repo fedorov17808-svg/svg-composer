@@ -1,5 +1,6 @@
 import { useUiStore, type LeftTab } from '../store/ui'
 import { ObjectLibraryGrid } from './ObjectLibraryGrid'
+import { PanelCollapse, PanelRail } from './PanelToggle'
 
 // The gopher tabs of v1 («Исходники», «Библиотека») are off: SourcesGrid and LibraryGrid stay in the code.
 const TABS: { id: LeftTab; label: string }[] = [{ id: 'objects', label: 'Библиотека объектов' }]
@@ -7,6 +8,9 @@ const TABS: { id: LeftTab; label: string }[] = [{ id: 'objects', label: 'Биб�
 export function LeftPanel() {
   const leftTab = useUiStore((s) => s.leftTab)
   const setLeftTab = useUiStore((s) => s.setLeftTab)
+  const open = useUiStore((s) => s.panels.left)
+
+  if (!open) return <PanelRail side="left" label="Библиотека объектов" />
 
   return (
     <aside className="panel panel-left" aria-label="Библиотека объектов">
@@ -24,6 +28,7 @@ export function LeftPanel() {
             {tab.label}
           </button>
         ))}
+        <PanelCollapse side="left" />
       </div>
       <div
         className="panel-body"

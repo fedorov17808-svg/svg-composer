@@ -159,6 +159,9 @@ export async function expectSameRender(browser: Browser, info: TestInfo, extract
   expect(different / painted, `различие ${((different / painted) * 100).toFixed(2)} %`).toBeLessThan(TOLERANCE)
 }
 
-/** Starts with an empty library, as before the demo components existed. */
+/** Starts with an empty library and an empty canvas: no demo components and no first-run composition. */
 export const skipDemo = ({ page }: { page: Page }) =>
-  page.addInitScript(() => localStorage.setItem('svg-composer-seeded', '1'))
+  page.addInitScript(() => {
+    localStorage.setItem('svg-composer-seeded', '1')
+    localStorage.setItem('svg-composer-no-demo', '1')
+  })

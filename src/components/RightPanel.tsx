@@ -13,6 +13,7 @@ import { useUiStore } from '../store/ui'
 import { LayersPanel } from './LayersPanel'
 import { NumberField } from './NumberField'
 import { PaletteForm } from './PaletteForm'
+import { PanelCollapse, PanelRail } from './PanelToggle'
 
 const fmt = (n: number) => (Math.round(n * 10) / 10).toLocaleString('ru-RU')
 
@@ -321,9 +322,14 @@ export function RightPanel() {
   const isSourceOpen = useEditorStore((s) => s.openSourceId !== null)
   const count = useEditorStore((s) => s.selection.length + s.selectedLeaves.length)
   const paletteForm = useUiStore((s) => s.paletteForm)
+  const open = useUiStore((s) => s.panels.right)
 
+  if (!open) return <PanelRail side="right" label="Слои и свойства" />
   return (
     <aside className="panel panel-right" aria-label="Слои и свойства">
+      <div className="panel-bar">
+        <PanelCollapse side="right" />
+      </div>
       {paletteForm && (
         <section className="panel-section">
           <h2 className="panel-heading">Новая палитра</h2>

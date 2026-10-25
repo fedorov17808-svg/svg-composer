@@ -1,17 +1,74 @@
 [
   {
-    "id": "holiday",
-    "title": "Гоферы на празднике",
-    "file": "examples/holiday.json"
+    "id": "finance-wide",
+    "title": "Финансовая грамотность — широкий 2:1, сиреневая",
+    "group": "Финансовая грамотность",
+    "label": "Широкий 2:1 · сиреневая, L",
+    "file": "examples/finance-wide.json",
+    "svg": "examples/finance-wide.svg"
   },
   {
-    "id": "work",
-    "title": "Гоферы за работой",
-    "file": "examples/work.json"
+    "id": "finance-square",
+    "title": "Финансовая грамотность — квадрат 1:1, персиковая",
+    "group": "Финансовая грамотность",
+    "label": "Квадрат 1:1 · персиковая, L",
+    "file": "examples/finance-square.json",
+    "svg": "examples/finance-square.svg"
   },
   {
-    "id": "garden",
-    "title": "Восточный сад",
-    "file": "examples/garden.json"
+    "id": "finance-tall",
+    "title": "Финансовая грамотность — вертикальный 2:3, мятная",
+    "group": "Финансовая грамотность",
+    "label": "Вертикальный 2:3 · мятная, L",
+    "file": "examples/finance-tall.json",
+    "svg": "examples/finance-tall.svg"
+  },
+  {
+    "id": "remote-wide",
+    "title": "Удалённая работа — широкий 2:1, мятная",
+    "group": "Удалённая работа",
+    "label": "Широкий 2:1 · мятная, L",
+    "file": "examples/remote-wide.json",
+    "svg": "examples/remote-wide.svg"
+  },
+  {
+    "id": "remote-square",
+    "title": "Удалённая работа — квадрат 1:1, сиреневая",
+    "group": "Удалённая работа",
+    "label": "Квадрат 1:1 · сиреневая, S",
+    "file": "examples/remote-square.json",
+    "svg": "examples/remote-square.svg"
+  },
+  {
+    "id": "remote-tall",
+    "title": "Удалённая работа — вертикальный 2:3, персиковая",
+    "group": "Удалённая работа",
+    "label": "Вертикальный 2:3 · персиковая, L",
+    "file": "examples/remote-tall.json",
+    "svg": "examples/remote-tall.svg"
+  },
+  {
+    "id": "study-wide",
+    "title": "Учёба — широкий 2:1, персиковая",
+    "group": "Учёба",
+    "label": "Широкий 2:1 · персиковая, L",
+    "file": "examples/study-wide.json",
+    "svg": "examples/study-wide.svg"
+  },
+  {
+    "id": "study-square",
+    "title": "Учёба — квадрат 1:1, мятная",
+    "group": "Учёба",
+    "label": "Квадрат 1:1 · мятная, L",
+    "file": "examples/study-square.json",
+    "svg": "examples/study-square.svg"
+  },
+  {
+    "id": "study-tall",
+    "title": "Учёба — вертикальный 2:3, сиреневая",
+    "group": "Учёба",
+    "label": "Вертикальный 2:3 · сиреневая, S",
+    "file": "examples/study-tall.json",
+    "svg": "examples/study-tall.svg"
   }
 ]
